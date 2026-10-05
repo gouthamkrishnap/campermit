@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from .models import Camera, UvcFunction
+from .models import Camera, CameraState, UvcFunction
 from .sysfs import Sysfs
 
 
@@ -80,6 +80,38 @@ def get_uvc_driver(
     return get_interface_driver(sysfs, control_interface)
 
 
+def discover_video_nodes(
+    sysfs: Sysfs,
+    control_interface: str,
+) -> list[str]:
+    video_root = sysfs.path("class", "video4linux")
+
+    if not video_root.is_dir():
+        return []
+
+    interface_path = sysfs.path(
+        *USB_DEVICE_ROOT,
+        control_interface,
+    ).resolve()
+
+    nodes = []
+
+    for entry in sorted(video_root.iterdir()):
+        if not entry.name.startswith("video"):
+            continue
+
+        resolved = entry.resolve()
+
+        try:
+            resolved.relative_to(interface_path)
+        except ValueError:
+            continue
+
+        nodes.append(f"/dev/{entry.name}")
+
+    return nodes
+
+
 def read_optional(
     sysfs: Sysfs,
     device: Path,
@@ -92,6 +124,29 @@ def read_optional(
 
     value = path.read_text().strip()
     return value or None
+
+
+def get_camera_state(
+    functions: list[UvcFunction],
+) -> CameraState:
+    if not functions:
+        return CameraState.UNKNOWN
+
+    drivers = {function.driver for function in functions}
+
+    if drivers == {UVC_DRIVER}:
+        return CameraState.ENABLED
+
+    if drivers == {None}:
+        return CameraState.DISABLED
+
+    if any(
+        driver is not None and driver != UVC_DRIVER
+        for driver in drivers
+    ):
+        return CameraState.BOUND_TO_OTHER_DRIVER
+
+    return CameraState.UNKNOWN
 
 
 def discover_camera(
@@ -114,6 +169,10 @@ def discover_camera(
         streaming_interfaces=streaming_interfaces,
         driver=driver,
         bound=driver == UVC_DRIVER,
+        video_nodes=discover_video_nodes(
+            sysfs,
+            control_interface,
+        ),
     )
 
     return Camera(
@@ -125,6 +184,7 @@ def discover_camera(
         vendor=read_optional(sysfs, device, "manufacturer"),
         product=read_optional(sysfs, device, "product"),
         functions=[function],
+        state=get_camera_state([function]),
     )
 
 
