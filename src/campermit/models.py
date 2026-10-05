@@ -26,6 +26,7 @@ class Camera:
     bus_path: str
     vid: str
     pid: str
+    name: str | None = None
     serial: str | None = None
     vendor: str | None = None
     product: str | None = None

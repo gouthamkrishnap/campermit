@@ -175,14 +175,17 @@ def discover_camera(
         ),
     )
 
+    product = read_optional(sysfs, device, "product")
+
     return Camera(
         id="",
         bus_path=device.name,
         vid=(device / "idVendor").read_text().strip(),
         pid=(device / "idProduct").read_text().strip(),
+        name=product,
         serial=read_optional(sysfs, device, "serial"),
         vendor=read_optional(sysfs, device, "manufacturer"),
-        product=read_optional(sysfs, device, "product"),
+        product=product,
         functions=[function],
         state=get_camera_state([function]),
     )
