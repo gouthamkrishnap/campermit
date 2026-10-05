@@ -20,5 +20,12 @@ class Sysfs:
             for entry in self.path(*parts).iterdir()
         )
 
+    def children(self,*parts:str)->list[Path]:
+        return sorted(
+            entry
+            for entry in self.path(*parts).iterdir()
+            if entry.is_dir()
+        )
+
     def resolve(self,*parts:str)->Path:
         return self.path(*parts).resolve()
