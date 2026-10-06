@@ -51,3 +51,16 @@ def cameras_list(cameras: list[Camera]) -> str:
         ).rstrip()
         for row in rows
     )
+
+
+def camera_status(camera: Camera) -> str:
+    return camera.state.value
+
+
+def camera_status_json(camera: Camera) -> str:
+    data = {
+        "schema_version": SCHEMA_VERSION,
+        **camera_summary(camera),
+    }
+
+    return json.dumps(data, indent=2)
