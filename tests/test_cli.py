@@ -1,7 +1,10 @@
 from campermit import cli
 from campermit.linux.uvc import Outcome, State
 from campermit.models import Camera
-from campermit.service import OperationResult
+from campermit.service import (
+    BatchOperationResult,
+    OperationResult,
+)
 
 
 def make_camera() -> Camera:
@@ -14,10 +17,7 @@ def make_camera() -> Camera:
     )
 
 
-def test_enable_command(
-    monkeypatch,
-    capsys,
-) -> None:
+def test_enable_command(monkeypatch, capsys) -> None:
     camera = make_camera()
 
     monkeypatch.setattr(
@@ -35,12 +35,7 @@ def test_enable_command(
         ),
     )
 
-    monkeypatch.setattr(
-        cli,
-        "Sysfs",
-        lambda: object(),
-    )
-
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
     monkeypatch.setattr(
         "sys.argv",
         ["campermit", "enable", "1"],
@@ -51,10 +46,7 @@ def test_enable_command(
     assert capsys.readouterr().out == "Camera 1 enabled.\n"
 
 
-def test_disable_command(
-    monkeypatch,
-    capsys,
-) -> None:
+def test_disable_command(monkeypatch, capsys) -> None:
     camera = make_camera()
 
     monkeypatch.setattr(
@@ -72,12 +64,7 @@ def test_disable_command(
         ),
     )
 
-    monkeypatch.setattr(
-        cli,
-        "Sysfs",
-        lambda: object(),
-    )
-
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
     monkeypatch.setattr(
         "sys.argv",
         ["campermit", "disable", "1"],
@@ -88,10 +75,7 @@ def test_disable_command(
     assert capsys.readouterr().out == "Camera 1 disabled.\n"
 
 
-def test_toggle_command(
-    monkeypatch,
-    capsys,
-) -> None:
+def test_toggle_command(monkeypatch, capsys) -> None:
     camera = make_camera()
 
     monkeypatch.setattr(
@@ -109,12 +93,7 @@ def test_toggle_command(
         ),
     )
 
-    monkeypatch.setattr(
-        cli,
-        "Sysfs",
-        lambda: object(),
-    )
-
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
     monkeypatch.setattr(
         "sys.argv",
         ["campermit", "toggle", "1"],
@@ -125,10 +104,7 @@ def test_toggle_command(
     assert capsys.readouterr().out == "Camera 1 disabled.\n"
 
 
-def test_enable_json(
-    monkeypatch,
-    capsys,
-) -> None:
+def test_enable_json(monkeypatch, capsys) -> None:
     camera = make_camera()
 
     monkeypatch.setattr(
@@ -146,12 +122,7 @@ def test_enable_json(
         ),
     )
 
-    monkeypatch.setattr(
-        cli,
-        "Sysfs",
-        lambda: object(),
-    )
-
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
     monkeypatch.setattr(
         "sys.argv",
         ["campermit", "enable", "1", "--json"],
@@ -160,19 +131,16 @@ def test_enable_json(
     cli.main()
 
     assert capsys.readouterr().out == (
-        '{\n'
+        "{\n"
         '  "schema_version": 1,\n'
         '  "id": "1",\n'
         '  "outcome": "changed",\n'
         '  "state": "enabled"\n'
-        '}\n'
+        "}\n"
     )
 
 
-def test_disable_already(
-    monkeypatch,
-    capsys,
-) -> None:
+def test_disable_already(monkeypatch, capsys) -> None:
     camera = make_camera()
 
     monkeypatch.setattr(
@@ -190,12 +158,7 @@ def test_disable_already(
         ),
     )
 
-    monkeypatch.setattr(
-        cli,
-        "Sysfs",
-        lambda: object(),
-    )
-
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
     monkeypatch.setattr(
         "sys.argv",
         ["campermit", "disable", "1"],
@@ -203,20 +166,17 @@ def test_disable_already(
 
     cli.main()
 
-    assert capsys.readouterr().out == (
-        "Camera 1 already disabled.\n"
-    )
+    assert capsys.readouterr().out == "Camera 1 already disabled.\n"
 
 
-def test_enable_unknown_camera(
-    monkeypatch,
-) -> None:
+def test_enable_unknown_camera(monkeypatch) -> None:
     monkeypatch.setattr(
         cli,
         "discover_cameras",
         lambda sysfs: [],
     )
 
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
     monkeypatch.setattr(
         "sys.argv",
         ["campermit", "enable", "1"],
@@ -228,3 +188,243 @@ def test_enable_unknown_camera(
         assert error.code == 2
     else:
         raise AssertionError("Expected SystemExit")
+
+
+def test_enable_all_command(monkeypatch, capsys) -> None:
+    cameras = [
+        make_camera(),
+        Camera(
+            id="2",
+            bus_path="4-2",
+            vid="1234",
+            pid="5678",
+            name="Second Camera",
+        ),
+    ]
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: cameras,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "enable_all",
+        lambda cameras, sysfs: [
+            BatchOperationResult(
+                camera_id="1",
+                result=OperationResult(
+                    outcome=Outcome.CHANGED,
+                    state=State.BOUND,
+                ),
+            ),
+            BatchOperationResult(
+                camera_id="2",
+                result=OperationResult(
+                    outcome=Outcome.ALREADY,
+                    state=State.BOUND,
+                ),
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "enable", "--all"],
+    )
+
+    cli.main()
+
+    assert capsys.readouterr().out == (
+        "Camera 1 enabled.\n"
+        "Camera 2 already enabled.\n"
+    )
+
+
+def test_disable_all_command(monkeypatch, capsys) -> None:
+    cameras = [
+        make_camera(),
+        Camera(
+            id="2",
+            bus_path="4-2",
+            vid="1234",
+            pid="5678",
+            name="Second Camera",
+        ),
+    ]
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: cameras,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "disable_all",
+        lambda cameras, sysfs: [
+            BatchOperationResult(
+                camera_id="1",
+                result=OperationResult(
+                    outcome=Outcome.CHANGED,
+                    state=State.UNBOUND,
+                ),
+            ),
+            BatchOperationResult(
+                camera_id="2",
+                result=OperationResult(
+                    outcome=Outcome.ALREADY,
+                    state=State.UNBOUND,
+                ),
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "disable", "--all"],
+    )
+
+    cli.main()
+
+    assert capsys.readouterr().out == (
+        "Camera 1 disabled.\n"
+        "Camera 2 already disabled.\n"
+    )
+
+
+def test_enable_all_json(monkeypatch, capsys) -> None:
+    cameras = [
+        make_camera(),
+        Camera(
+            id="2",
+            bus_path="4-2",
+            vid="1234",
+            pid="5678",
+            name="Second Camera",
+        ),
+    ]
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: cameras,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "enable_all",
+        lambda cameras, sysfs: [
+            BatchOperationResult(
+                camera_id="1",
+                result=OperationResult(
+                    outcome=Outcome.CHANGED,
+                    state=State.BOUND,
+                ),
+            ),
+            BatchOperationResult(
+                camera_id="2",
+                result=OperationResult(
+                    outcome=Outcome.ALREADY,
+                    state=State.BOUND,
+                ),
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "enable", "--all", "--json"],
+    )
+
+    cli.main()
+
+    assert capsys.readouterr().out == (
+        "{\n"
+        '  "schema_version": 1,\n'
+        '  "operation": "enable",\n'
+        '  "results": [\n'
+        "    {\n"
+        '      "id": "1",\n'
+        '      "outcome": "changed",\n'
+        '      "state": "enabled"\n'
+        "    },\n"
+        "    {\n"
+        '      "id": "2",\n'
+        '      "outcome": "already",\n'
+        '      "state": "enabled"\n'
+        "    }\n"
+        "  ]\n"
+        "}\n"
+    )
+
+
+def test_disable_all_json(monkeypatch, capsys) -> None:
+    cameras = [
+        make_camera(),
+        Camera(
+            id="2",
+            bus_path="4-2",
+            vid="1234",
+            pid="5678",
+            name="Second Camera",
+        ),
+    ]
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: cameras,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "disable_all",
+        lambda cameras, sysfs: [
+            BatchOperationResult(
+                camera_id="1",
+                result=OperationResult(
+                    outcome=Outcome.CHANGED,
+                    state=State.UNBOUND,
+                ),
+            ),
+            BatchOperationResult(
+                camera_id="2",
+                result=OperationResult(
+                    outcome=Outcome.ALREADY,
+                    state=State.UNBOUND,
+                ),
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "disable", "--all", "--json"],
+    )
+
+    cli.main()
+
+    assert capsys.readouterr().out == (
+        "{\n"
+        '  "schema_version": 1,\n'
+        '  "operation": "disable",\n'
+        '  "results": [\n'
+        "    {\n"
+        '      "id": "1",\n'
+        '      "outcome": "changed",\n'
+        '      "state": "disabled"\n'
+        "    },\n"
+        "    {\n"
+        '      "id": "2",\n'
+        '      "outcome": "already",\n'
+        '      "state": "disabled"\n'
+        "    }\n"
+        "  ]\n"
+        "}\n"
+    )

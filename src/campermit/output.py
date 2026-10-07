@@ -2,7 +2,7 @@ import json
 
 from .linux.uvc import Outcome, State
 from .models import Camera
-from .service import OperationResult
+from .service import BatchOperationResult, OperationResult
 
 
 SCHEMA_VERSION = 1
@@ -181,5 +181,77 @@ def operation_result_json(
             else "disabled"
         ),
     }
+
+    return json.dumps(data, indent=2)
+
+
+def operation_results(
+    operation: str,
+    results: list[BatchOperationResult],
+) -> str:
+    lines = []
+
+    for result in results:
+        if result.error is not None:
+            lines.append(
+                f"Camera {result.camera_id}: {result.error}"
+            )
+            continue
+
+        if result.result is None:
+            continue
+
+        state = (
+            "enabled"
+            if result.result.state is State.BOUND
+            else "disabled"
+        )
+
+        if result.result.outcome is Outcome.ALREADY:
+            lines.append(
+                f"Camera {result.camera_id} already {state}."
+            )
+        else:
+            lines.append(
+                f"Camera {result.camera_id} {state}."
+            )
+
+    return "\n".join(lines)
+
+
+def operation_results_json(
+    operation: str,
+    results: list[BatchOperationResult],
+) -> str:
+    data = {
+        "schema_version": SCHEMA_VERSION,
+        "operation": operation,
+        "results": [],
+    }
+
+    for result in results:
+        item = {
+            "id": result.camera_id,
+        }
+
+        if result.result is not None:
+            item.update(
+                {
+                    "outcome": result.result.outcome.value,
+                    "state": (
+                        "enabled"
+                        if result.result.state is State.BOUND
+                        else "disabled"
+                    ),
+                }
+            )
+        elif result.error is not None:
+            item.update(
+                {
+                    "error": str(result.error),
+                }
+            )
+
+        data["results"].append(item)
 
     return json.dumps(data, indent=2)

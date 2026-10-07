@@ -5,6 +5,7 @@ from typing import IO
 
 from .errors import (
     BoundToOtherDriver,
+    CamPermitError,
     InterfaceGone,
 )
 from .linux.uvc import (
@@ -25,6 +26,13 @@ LOCK_PATH = Path("/run/lock/campermit.lock")
 class OperationResult:
     outcome: Outcome
     state: State
+
+
+@dataclass(frozen=True)
+class BatchOperationResult:
+    camera_id: str
+    result: OperationResult | None = None
+    error: CamPermitError | None = None
 
 
 class OperationLock:
@@ -59,52 +67,79 @@ class OperationLock:
             self._file = None
 
 
-def enable(
-    camera: Camera,
-    *,
-    sysfs: Sysfs,
-    lock_path: Path = LOCK_PATH,
-) -> OperationResult:
+def _validate_camera(camera: Camera) -> None:
     if len(camera.functions) != 1:
         raise ValueError(
             f"Camera '{camera.id}' must have exactly one UVC function."
         )
 
-    with OperationLock(lock_path):
-        interface = parse_control_interface(
-            sysfs.root,
-            camera.functions[0].control_interface,
-        )
 
-        outcome = set_bound(
-            sysfs.root,
-            interface,
-            True,
-        )
-
-        return OperationResult(
-            outcome=outcome,
-            state=State.BOUND,
-        )
-
-
-def disable(
+def _enable_locked(
     camera: Camera,
     *,
     sysfs: Sysfs,
-    lock_path: Path = LOCK_PATH,
 ) -> OperationResult:
-    if len(camera.functions) != 1:
-        raise ValueError(
-            f"Camera '{camera.id}' must have exactly one UVC function."
-        )
+    _validate_camera(camera)
 
-    with OperationLock(lock_path):
-        interface = parse_control_interface(
-            sysfs.root,
-            camera.functions[0].control_interface,
-        )
+    interface = parse_control_interface(
+        sysfs.root,
+        camera.functions[0].control_interface,
+    )
 
+    outcome = set_bound(
+        sysfs.root,
+        interface,
+        True,
+    )
+
+    return OperationResult(
+        outcome=outcome,
+        state=State.BOUND,
+    )
+
+
+def _disable_locked(
+    camera: Camera,
+    *,
+    sysfs: Sysfs,
+) -> OperationResult:
+    _validate_camera(camera)
+
+    interface = parse_control_interface(
+        sysfs.root,
+        camera.functions[0].control_interface,
+    )
+
+    outcome = set_bound(
+        sysfs.root,
+        interface,
+        False,
+    )
+
+    return OperationResult(
+        outcome=outcome,
+        state=State.UNBOUND,
+    )
+
+
+def _toggle_locked(
+    camera: Camera,
+    *,
+    sysfs: Sysfs,
+) -> OperationResult:
+    _validate_camera(camera)
+
+    interface = parse_control_interface(
+        sysfs.root,
+        camera.functions[0].control_interface,
+    )
+
+    observed = observe(
+        sysfs.root,
+        interface,
+    )
+
+    if observed.state is State.BOUND:
         outcome = set_bound(
             sysfs.root,
             interface,
@@ -116,6 +151,59 @@ def disable(
             state=State.UNBOUND,
         )
 
+    if observed.state is State.UNBOUND:
+        outcome = set_bound(
+            sysfs.root,
+            interface,
+            True,
+        )
+
+        return OperationResult(
+            outcome=outcome,
+            state=State.BOUND,
+        )
+
+    if observed.state is State.GONE:
+        raise InterfaceGone(interface.name)
+
+    if observed.state is State.OTHER:
+        raise BoundToOtherDriver(interface.name)
+
+    raise ValueError(
+        f"Cannot toggle camera '{camera.id}' "
+        f"from state '{observed.state.value}'."
+    )
+
+
+def enable(
+    camera: Camera,
+    *,
+    sysfs: Sysfs,
+    lock_path: Path = LOCK_PATH,
+) -> OperationResult:
+    _validate_camera(camera)
+
+    with OperationLock(lock_path):
+        return _enable_locked(
+            camera,
+            sysfs=sysfs,
+        )
+
+
+def disable(
+    camera: Camera,
+    *,
+    sysfs: Sysfs,
+    lock_path: Path = LOCK_PATH,
+) -> OperationResult:
+    _validate_camera(camera)
+
+    with OperationLock(lock_path):
+        return _disable_locked(
+            camera,
+            sysfs=sysfs,
+        )
+
 
 def toggle(
     camera: Camera,
@@ -123,53 +211,82 @@ def toggle(
     sysfs: Sysfs,
     lock_path: Path = LOCK_PATH,
 ) -> OperationResult:
-    if len(camera.functions) != 1:
-        raise ValueError(
-            f"Camera '{camera.id}' must have exactly one UVC function."
-        )
+    _validate_camera(camera)
 
     with OperationLock(lock_path):
-        interface = parse_control_interface(
-            sysfs.root,
-            camera.functions[0].control_interface,
+        return _toggle_locked(
+            camera,
+            sysfs=sysfs,
         )
 
-        observed = observe(
-            sysfs.root,
-            interface,
-        )
 
-        if observed.state is State.BOUND:
-            outcome = set_bound(
-                sysfs.root,
-                interface,
-                False,
-            )
+def enable_all(
+    cameras: list[Camera],
+    *,
+    sysfs: Sysfs,
+    lock_path: Path = LOCK_PATH,
+) -> list[BatchOperationResult]:
+    for camera in cameras:
+        _validate_camera(camera)
 
-            return OperationResult(
-                outcome=outcome,
-                state=State.UNBOUND,
-            )
+    results = []
 
-        if observed.state is State.UNBOUND:
-            outcome = set_bound(
-                sysfs.root,
-                interface,
-                True,
-            )
+    with OperationLock(lock_path):
+        for camera in cameras:
+            try:
+                result = _enable_locked(
+                    camera,
+                    sysfs=sysfs,
+                )
+            except CamPermitError as error:
+                results.append(
+                    BatchOperationResult(
+                        camera_id=camera.id,
+                        error=error,
+                    )
+                )
+            else:
+                results.append(
+                    BatchOperationResult(
+                        camera_id=camera.id,
+                        result=result,
+                    )
+                )
 
-            return OperationResult(
-                outcome=outcome,
-                state=State.BOUND,
-            )
+    return results
 
-        if observed.state is State.GONE:
-            raise InterfaceGone(interface.name)
 
-        if observed.state is State.OTHER:
-            raise BoundToOtherDriver(interface.name)
+def disable_all(
+    cameras: list[Camera],
+    *,
+    sysfs: Sysfs,
+    lock_path: Path = LOCK_PATH,
+) -> list[BatchOperationResult]:
+    for camera in cameras:
+        _validate_camera(camera)
 
-        raise ValueError(
-            f"Cannot toggle camera '{camera.id}' "
-            f"from state '{observed.state.value}'."
-        )
+    results = []
+
+    with OperationLock(lock_path):
+        for camera in cameras:
+            try:
+                result = _disable_locked(
+                    camera,
+                    sysfs=sysfs,
+                )
+            except CamPermitError as error:
+                results.append(
+                    BatchOperationResult(
+                        camera_id=camera.id,
+                        error=error,
+                    )
+                )
+            else:
+                results.append(
+                    BatchOperationResult(
+                        camera_id=camera.id,
+                        result=result,
+                    )
+                )
+
+    return results

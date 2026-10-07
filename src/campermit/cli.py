@@ -12,9 +12,17 @@ from .output import (
     cameras_list,
     operation_result,
     operation_result_json,
+    operation_results,
+    operation_results_json,
 )
 from .selectors import select_camera
-from .service import disable, enable, toggle
+from .service import (
+    disable,
+    disable_all,
+    enable,
+    enable_all,
+    toggle,
+)
 from .sysfs import Sysfs
 
 
@@ -81,7 +89,13 @@ def main() -> None:
     )
     enable_parser.add_argument(
         "selector",
+        nargs="?",
         help="Camera ID, bus path, or VID:PID.",
+    )
+    enable_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Enable all cameras.",
     )
     enable_parser.add_argument(
         "--json",
@@ -95,7 +109,13 @@ def main() -> None:
     )
     disable_parser.add_argument(
         "selector",
+        nargs="?",
         help="Camera ID, bus path, or VID:PID.",
+    )
+    disable_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Disable all cameras.",
     )
     disable_parser.add_argument(
         "--json",
@@ -172,39 +192,126 @@ def main() -> None:
             else:
                 print(camera_info(camera))
 
-    elif args.command in {"enable", "disable", "toggle"}:
-        cameras = discover_cameras(Sysfs())
+    elif args.command in {"enable", "disable"}:
+        if args.selector and args.all:
+            if args.command == "enable":
+                enable_parser.error(
+                    "camera selector and --all cannot be used together."
+                )
 
-        try:
-            camera = select_camera(cameras, args.selector)
-        except ValueError as error:
-            parser.error(str(error))
+            disable_parser.error(
+                "camera selector and --all cannot be used together."
+            )
+
+        if not args.selector and not args.all:
+            if args.command == "enable":
+                enable_parser.error(
+                    "a camera selector or --all is required."
+                )
+
+            disable_parser.error(
+                "a camera selector or --all is required."
+            )
 
         sysfs = Sysfs()
+        cameras = discover_cameras(sysfs)
 
-        try:
+        if args.all:
+            if args.command == "enable":
+                results = enable_all(
+                    cameras,
+                    sysfs=sysfs,
+                )
+            else:
+                results = disable_all(
+                    cameras,
+                    sysfs=sysfs,
+                )
+
+            if args.json:
+                print(
+                    operation_results_json(
+                        args.command,
+                        results,
+                    )
+                )
+            else:
+                print(
+                    operation_results(
+                        args.command,
+                        results,
+                    )
+            )
+        else:
+            try:
+                camera = select_camera(
+                    cameras,
+                    args.selector,
+                )
+            except ValueError as error:
+                if args.command == "enable":
+                    enable_parser.error(str(error))
+
+                disable_parser.error(str(error))
+
             if args.command == "enable":
                 result = enable(
                     camera,
                     sysfs=sysfs,
                 )
-            elif args.command == "disable":
+            else:
                 result = disable(
                     camera,
                     sysfs=sysfs,
                 )
-            else:
-                result = toggle(
-                    camera,
-                    sysfs=sysfs,
+
+            if args.json:
+                print(
+                    operation_result_json(
+                        camera,
+                        result,
+                    )
                 )
+            else:
+                print(
+                    operation_result(
+                        camera,
+                        result,
+                    )
+                )
+
+    elif args.command == "toggle":
+        cameras = discover_cameras(Sysfs())
+
+        try:
+            camera = select_camera(
+                cameras,
+                args.selector,
+            )
         except ValueError as error:
-            parser.error(str(error))
+            toggle_parser.error(str(error))
+
+        sysfs = Sysfs()
+
+        result = toggle(
+            camera,
+            sysfs=sysfs,
+        )
 
         if args.json:
-            print(operation_result_json(camera, result))
+            print(
+                operation_result_json(
+                    camera,
+                    result,
+                )
+            )
         else:
-            print(operation_result(camera, result))
+            print(
+                operation_result(
+                    camera,
+                    result,
+                )
+            )
 
 
 if __name__ == "__main__":
