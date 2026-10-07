@@ -1,4 +1,5 @@
 import fcntl
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO
 
@@ -18,6 +19,12 @@ from .sysfs import Sysfs
 
 
 LOCK_PATH = Path("/run/lock/campermit.lock")
+
+
+@dataclass(frozen=True)
+class OperationResult:
+    outcome: Outcome
+    state: State
 
 
 class OperationLock:
@@ -57,7 +64,7 @@ def enable(
     *,
     sysfs: Sysfs,
     lock_path: Path = LOCK_PATH,
-) -> Outcome:
+) -> OperationResult:
     if len(camera.functions) != 1:
         raise ValueError(
             f"Camera '{camera.id}' must have exactly one UVC function."
@@ -69,10 +76,15 @@ def enable(
             camera.functions[0].control_interface,
         )
 
-        return set_bound(
+        outcome = set_bound(
             sysfs.root,
             interface,
             True,
+        )
+
+        return OperationResult(
+            outcome=outcome,
+            state=State.BOUND,
         )
 
 
@@ -81,7 +93,7 @@ def disable(
     *,
     sysfs: Sysfs,
     lock_path: Path = LOCK_PATH,
-) -> Outcome:
+) -> OperationResult:
     if len(camera.functions) != 1:
         raise ValueError(
             f"Camera '{camera.id}' must have exactly one UVC function."
@@ -93,10 +105,15 @@ def disable(
             camera.functions[0].control_interface,
         )
 
-        return set_bound(
+        outcome = set_bound(
             sysfs.root,
             interface,
             False,
+        )
+
+        return OperationResult(
+            outcome=outcome,
+            state=State.UNBOUND,
         )
 
 
@@ -105,7 +122,7 @@ def toggle(
     *,
     sysfs: Sysfs,
     lock_path: Path = LOCK_PATH,
-) -> Outcome:
+) -> OperationResult:
     if len(camera.functions) != 1:
         raise ValueError(
             f"Camera '{camera.id}' must have exactly one UVC function."
@@ -123,17 +140,27 @@ def toggle(
         )
 
         if observed.state is State.BOUND:
-            return set_bound(
+            outcome = set_bound(
                 sysfs.root,
                 interface,
                 False,
             )
 
+            return OperationResult(
+                outcome=outcome,
+                state=State.UNBOUND,
+            )
+
         if observed.state is State.UNBOUND:
-            return set_bound(
+            outcome = set_bound(
                 sysfs.root,
                 interface,
                 True,
+            )
+
+            return OperationResult(
+                outcome=outcome,
+                state=State.BOUND,
             )
 
         if observed.state is State.GONE:

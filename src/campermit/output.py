@@ -1,6 +1,8 @@
 import json
 
+from .linux.uvc import Outcome, State
 from .models import Camera
+from .service import OperationResult
 
 
 SCHEMA_VERSION = 1
@@ -144,6 +146,40 @@ def cameras_info_json(cameras: list[Camera]) -> str:
     data = {
         "schema_version": SCHEMA_VERSION,
         "cameras": [camera_details(camera) for camera in cameras],
+    }
+
+    return json.dumps(data, indent=2)
+
+
+def operation_result(
+    camera: Camera,
+    result: OperationResult,
+) -> str:
+    state = (
+        "enabled"
+        if result.state is State.BOUND
+        else "disabled"
+    )
+
+    if result.outcome is Outcome.ALREADY:
+        return f"Camera {camera.id} already {state}."
+
+    return f"Camera {camera.id} {state}."
+
+
+def operation_result_json(
+    camera: Camera,
+    result: OperationResult,
+) -> str:
+    data = {
+        "schema_version": SCHEMA_VERSION,
+        "id": camera.id,
+        "outcome": result.outcome.value,
+        "state": (
+            "enabled"
+            if result.state is State.BOUND
+            else "disabled"
+        ),
     }
 
     return json.dumps(data, indent=2)

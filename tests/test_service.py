@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from campermit.errors import BoundToOtherDriver
-from campermit.linux.uvc import Outcome
+from campermit.linux.uvc import Outcome, State
 from campermit.models import Camera, UvcFunction
 from campermit.service import (
     OperationLock,
@@ -114,7 +114,8 @@ def test_enable_binds_camera(
         lock_path=tmp_path / "campermit.lock",
     )
 
-    assert result is Outcome.CHANGED
+    assert result.outcome is Outcome.CHANGED
+    assert result.state is State.BOUND
 
     assert calls == [
         (
@@ -191,7 +192,8 @@ def test_enable_already_bound_returns_already(
         lock_path=tmp_path / "campermit.lock",
     )
 
-    assert result is Outcome.ALREADY
+    assert result.outcome is Outcome.ALREADY
+    assert result.state is State.BOUND
 
 
 def test_disable_unbinds_camera(
@@ -250,7 +252,8 @@ def test_disable_unbinds_camera(
         lock_path=tmp_path / "campermit.lock",
     )
 
-    assert result is Outcome.CHANGED
+    assert result.outcome is Outcome.CHANGED
+    assert result.state is State.UNBOUND
 
     assert calls == [
         (
@@ -316,7 +319,8 @@ def test_disable_already_unbound_returns_already(
         lock_path=tmp_path / "campermit.lock",
     )
 
-    assert result is Outcome.ALREADY
+    assert result.outcome is Outcome.ALREADY
+    assert result.state is State.UNBOUND
 
 
 def test_toggle_disables_bound_camera(
@@ -377,7 +381,8 @@ def test_toggle_disables_bound_camera(
         lock_path=tmp_path / "campermit.lock",
     )
 
-    assert result is Outcome.CHANGED
+    assert result.outcome is Outcome.CHANGED
+    assert result.state is State.UNBOUND
     assert calls == [False]
 
 
@@ -428,7 +433,8 @@ def test_toggle_enables_unbound_camera(
         lock_path=tmp_path / "campermit.lock",
     )
 
-    assert result is Outcome.CHANGED
+    assert result.outcome is Outcome.CHANGED
+    assert result.state is State.BOUND
     assert calls == [True]
 
 
