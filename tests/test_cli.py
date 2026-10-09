@@ -617,3 +617,78 @@ def test_disable_all_error_returns_nonzero(
         "Camera 1: Permission denied.\n"
         "Camera 2 disabled.\n"
     )
+
+
+def test_enable_all_json_error_returns_nonzero(
+    monkeypatch,
+    capsys,
+) -> None:
+    import json
+
+    from campermit.errors import PermissionDenied
+
+    cameras = [
+        make_camera(),
+        Camera(
+            id="2",
+            bus_path="4-2",
+            vid="1234",
+            pid="5678",
+            name="Second Camera",
+        ),
+    ]
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: cameras,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "enable_all",
+        lambda cameras, sysfs: [
+            BatchOperationResult(
+                camera_id="1",
+                error=PermissionDenied("Permission denied."),
+            ),
+            BatchOperationResult(
+                camera_id="2",
+                result=OperationResult(
+                    outcome=Outcome.CHANGED,
+                    state=State.BOUND,
+                ),
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "enable", "--all", "--json"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 1
+    else:
+        raise AssertionError("Expected SystemExit")
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    assert data["schema_version"] == 1
+    assert data["operation"] == "enable"
+    assert data["results"] == [
+        {
+            "id": "1",
+            "error": "Permission denied.",
+        },
+        {
+            "id": "2",
+            "outcome": "changed",
+            "state": "enabled",
+        },
+    ]
+    assert captured.err == ""
