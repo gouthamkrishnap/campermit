@@ -244,6 +244,10 @@ def main() -> None:
                         results,
                     )
                 )
+
+            if any(result.error is not None for result in results):
+                raise SystemExit(1)
+
         else:
             try:
                 camera = select_camera(
