@@ -892,3 +892,62 @@ def test_disable_all_with_no_cameras(
     cli.main()
 
     assert capsys.readouterr().out == "No cameras found.\n"
+
+
+
+def test_enable_rejects_selector_with_all(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "enable", "1", "--all"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Expected SystemExit")
+
+
+
+def test_disable_rejects_selector_with_all(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "disable", "1", "--all"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Expected SystemExit")
+
+
+
+def test_enable_requires_selector_or_all(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "enable"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Expected SystemExit")
+
+
+def test_disable_requires_selector_or_all(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "disable"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Expected SystemExit")
