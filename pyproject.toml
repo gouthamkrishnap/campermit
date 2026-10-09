@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "campermit"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Linux CLI utility for controlling camera availability at the device and driver level."
 readme = "README.md"
 requires-python = ">=3.11"
