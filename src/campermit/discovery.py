@@ -158,7 +158,7 @@ def discover_camera(
         device,
     )
 
-    if len(control_interfaces) != 1:
+    if len(control_interfaces) != 1 or not streaming_interfaces:
         return None
 
     control_interface = control_interfaces[0]
