@@ -1,7 +1,9 @@
 import argparse
+import sys
 
 from . import __version__
 from .discovery import discover_cameras
+from .errors import CamPermitError
 from .output import (
     camera_info,
     camera_info_json,
@@ -241,7 +243,7 @@ def main() -> None:
                         args.command,
                         results,
                     )
-            )
+                )
         else:
             try:
                 camera = select_camera(
@@ -254,16 +256,20 @@ def main() -> None:
 
                 disable_parser.error(str(error))
 
-            if args.command == "enable":
-                result = enable(
-                    camera,
-                    sysfs=sysfs,
-                )
-            else:
-                result = disable(
-                    camera,
-                    sysfs=sysfs,
-                )
+            try:
+                if args.command == "enable":
+                    result = enable(
+                        camera,
+                        sysfs=sysfs,
+                    )
+                else:
+                    result = disable(
+                        camera,
+                        sysfs=sysfs,
+                    )
+            except CamPermitError as error:
+                print(f"campermit: {error}", file=sys.stderr)
+                raise SystemExit(1) from None
 
             if args.json:
                 print(
@@ -293,10 +299,14 @@ def main() -> None:
 
         sysfs = Sysfs()
 
-        result = toggle(
-            camera,
-            sysfs=sysfs,
-        )
+        try:
+            result = toggle(
+                camera,
+                sysfs=sysfs,
+            )
+        except CamPermitError as error:
+            print(f"campermit: {error}", file=sys.stderr)
+            raise SystemExit(1) from None
 
         if args.json:
             print(

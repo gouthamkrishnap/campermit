@@ -464,3 +464,36 @@ def test_toggle_json(monkeypatch, capsys) -> None:
         '  "state": "disabled"\n'
         "}\n"
     )
+
+
+def test_enable_error(monkeypatch, capsys) -> None:
+    from campermit.errors import PermissionDenied
+
+    camera = make_camera()
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: [camera],
+    )
+
+    def fail_enable(camera, sysfs):
+        raise PermissionDenied("Permission denied.")
+
+    monkeypatch.setattr(cli, "enable", fail_enable)
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "enable", "1"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 1
+    else:
+        raise AssertionError("Expected SystemExit")
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == "campermit: Permission denied."
