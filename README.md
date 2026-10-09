@@ -23,17 +23,26 @@ CamPermit discovers supported USB Video Class (UVC) cameras and lets you inspect
 
 ## Installation
 
-Clone the repository:
+The recommended way to install CamPermit as a command-line application is with [pipx](https://pipx.pypa.io/stable/installation/). It installs CamPermit in an isolated Python environment and avoids modifying the system Python installation.
+
+### 1. Install pipx
+
+On Arch Linux:
+
+```bash
+sudo pacman -S python-pipx
+```
+
+For other Linux distributions, follow the [pipx installation instructions](https://pipx.pypa.io/stable/installation/).
+
+### 2. Install CamPermit
+
+Clone the repository and install the project:
 
 ```bash
 git clone https://github.com/gouthamkrishnap/campermit.git
 cd campermit
-```
-
-Install CamPermit:
-
-```bash
-python -m pip install .
+pipx install .
 ```
 
 Verify the installation:
@@ -42,6 +51,14 @@ Verify the installation:
 campermit --version
 campermit --help
 ```
+
+If the `campermit` command is not found, run:
+
+```bash
+pipx ensurepath
+```
+
+Then open a new terminal so the updated `PATH` takes effect.
 
 ## Usage
 
