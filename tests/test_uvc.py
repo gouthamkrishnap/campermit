@@ -901,3 +901,20 @@ def test_parse_control_interface_maps_read_error(
         )
 
     assert error.value.errno_value == errno.EIO
+
+
+def test_observe_gone_interface(tmp_path: Path) -> None:
+    create_uvc_fixture(tmp_path)
+
+    interface = parse_control_interface(
+        tmp_path,
+        "3-6:1.0",
+    )
+
+    shutil.rmtree(
+        tmp_path / "bus" / "usb" / "devices" / "3-6:1.0"
+    )
+
+    observed = observe(tmp_path, interface)
+
+    assert observed.state is State.GONE
