@@ -767,3 +767,61 @@ def test_disable_all_json_error_returns_nonzero(
         },
     ]
     assert captured.err == ""
+
+
+def test_enable_all_with_no_cameras(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: [],
+    )
+
+    def unexpected_enable_all(cameras, sysfs):
+        raise AssertionError("enable_all should not be called")
+
+    monkeypatch.setattr(
+        cli,
+        "enable_all",
+        unexpected_enable_all,
+    )
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "enable", "--all"],
+    )
+
+    cli.main()
+
+    assert capsys.readouterr().out == "No cameras found.\n"
+
+
+def test_disable_all_with_no_cameras(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: [],
+    )
+
+    def unexpected_disable_all(cameras, sysfs):
+        raise AssertionError("disable_all should not be called")
+
+    monkeypatch.setattr(
+        cli,
+        "disable_all",
+        unexpected_disable_all,
+    )
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "disable", "--all"],
+    )
+
+    cli.main()
+
+    assert capsys.readouterr().out == "No cameras found.\n"

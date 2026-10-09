@@ -1,3 +1,4 @@
+
 import argparse
 import sys
 
@@ -219,6 +220,13 @@ def main() -> None:
         cameras = discover_cameras(sysfs)
 
         if args.all:
+            if not cameras:
+                if args.json:
+                    print(operation_results_json(args.command, []))
+                else:
+                    print("No cameras found.")
+                return
+
             if args.command == "enable":
                 results = enable_all(
                     cameras,
