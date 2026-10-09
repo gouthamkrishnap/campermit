@@ -887,3 +887,87 @@ def test_enable_all_acquires_lock_once(
         ("enter",),
         ("exit",),
     ]
+
+
+def test_disable_all_acquires_lock_once(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cameras = [
+        Camera(
+            id="1",
+            bus_path="3-6",
+            vid="0408",
+            pid="5482",
+            functions=[
+                UvcFunction(control_interface="3-6:1.0"),
+            ],
+        ),
+        Camera(
+            id="2",
+            bus_path="4-2",
+            vid="1234",
+            pid="5678",
+            functions=[
+                UvcFunction(control_interface="4-2:1.0"),
+            ],
+        ),
+    ]
+
+    for interface in ("3-6:1.0", "4-2:1.0"):
+        interface_path = (
+            tmp_path
+            / "bus"
+            / "usb"
+            / "devices"
+            / interface
+        )
+        interface_path.mkdir(parents=True)
+        (interface_path / "bInterfaceClass").write_text("0e")
+        (interface_path / "bInterfaceSubClass").write_text("01")
+
+    calls = []
+
+    class FakeLock:
+        def __init__(self, path: Path):
+            calls.append(("init", path))
+
+        def __enter__(self):
+            calls.append(("enter",))
+            return self
+
+        def __exit__(
+            self,
+            _exc_type,
+            _exc_value,
+            _traceback,
+        ):
+            calls.append(("exit",))
+
+    def fake_set_bound(
+        _root: Path,
+        _interface,
+        _want_bound: bool,
+    ) -> Outcome:
+        return Outcome.CHANGED
+
+    monkeypatch.setattr(
+        "campermit.service.OperationLock",
+        FakeLock,
+    )
+    monkeypatch.setattr(
+        "campermit.service.set_bound",
+        fake_set_bound,
+    )
+
+    disable_all(
+        cameras,
+        sysfs=Sysfs(tmp_path),
+        lock_path=tmp_path / "campermit.lock",
+    )
+
+    assert calls == [
+        ("init", tmp_path / "campermit.lock"),
+        ("enter",),
+        ("exit",),
+    ]
