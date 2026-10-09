@@ -1,3 +1,4 @@
+
 import fcntl
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +8,7 @@ from .errors import (
     BoundToOtherDriver,
     CamPermitError,
     InterfaceGone,
+    PermissionDenied,
 )
 from .linux.uvc import (
     Outcome,
@@ -41,11 +43,31 @@ class OperationLock:
         self._file: IO[str] | None = None
 
     def __enter__(self) -> "OperationLock":
-        self._file = self.path.open("a+")
-        fcntl.flock(
-            self._file.fileno(),
-            fcntl.LOCK_EX,
-        )
+        try:
+            self._file = self.path.open("a+")
+            fcntl.flock(
+                self._file.fileno(),
+                fcntl.LOCK_EX,
+            )
+        except PermissionError as error:
+            if self._file is not None:
+                self._file.close()
+                self._file = None
+
+            raise PermissionDenied(
+                f"cannot access operation lock '{self.path}': "
+                f"{error.strerror}"
+            ) from None
+        except OSError as error:
+            if self._file is not None:
+                self._file.close()
+                self._file = None
+
+            raise CamPermitError(
+                f"cannot acquire operation lock '{self.path}': "
+                f"{error.strerror}"
+            ) from None
+
         return self
 
     def __exit__(

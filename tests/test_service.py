@@ -971,3 +971,25 @@ def test_disable_all_acquires_lock_once(
         ("enter",),
         ("exit",),
     ]
+
+
+
+def test_operation_lock_permission_error(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from campermit.errors import PermissionDenied
+
+    lock_path = tmp_path / "campermit.lock"
+
+    def deny_open(self, *args, **kwargs):
+        raise PermissionError(13, "Permission denied", str(self))
+
+    monkeypatch.setattr(Path, "open", deny_open)
+
+    with pytest.raises(
+        PermissionDenied,
+        match="cannot access operation lock",
+    ):
+        with OperationLock(lock_path):
+            pass
