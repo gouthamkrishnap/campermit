@@ -499,6 +499,73 @@ def test_enable_error(monkeypatch, capsys) -> None:
     assert captured.err.strip() == "campermit: Permission denied."
 
 
+def test_disable_error(monkeypatch, capsys) -> None:
+    from campermit.errors import PermissionDenied
+
+    camera = make_camera()
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: [camera],
+    )
+
+    def fail_disable(camera, sysfs):
+        raise PermissionDenied("Permission denied.")
+
+    monkeypatch.setattr(cli, "disable", fail_disable)
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "disable", "1"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 1
+    else:
+        raise AssertionError("Expected SystemExit")
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == "campermit: Permission denied."
+
+
+
+def test_toggle_error(monkeypatch, capsys) -> None:
+    from campermit.errors import PermissionDenied
+
+    camera = make_camera()
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: [camera],
+    )
+
+    def fail_toggle(camera, sysfs):
+        raise PermissionDenied("Permission denied.")
+
+    monkeypatch.setattr(cli, "toggle", fail_toggle)
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "toggle", "1"],
+    )
+
+    try:
+        cli.main()
+    except SystemExit as error:
+        assert error.code == 1
+    else:
+        raise AssertionError("Expected SystemExit")
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == "campermit: Permission denied."
+
+
 def test_enable_all_error_returns_nonzero(
     monkeypatch,
     capsys,
