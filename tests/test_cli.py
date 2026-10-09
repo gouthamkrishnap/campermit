@@ -428,3 +428,39 @@ def test_disable_all_json(monkeypatch, capsys) -> None:
         "  ]\n"
         "}\n"
     )
+
+
+def test_toggle_json(monkeypatch, capsys) -> None:
+    camera = make_camera()
+
+    monkeypatch.setattr(
+        cli,
+        "discover_cameras",
+        lambda sysfs: [camera],
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "toggle",
+        lambda camera, sysfs: OperationResult(
+            outcome=Outcome.CHANGED,
+            state=State.UNBOUND,
+        ),
+    )
+
+    monkeypatch.setattr(cli, "Sysfs", lambda: object())
+    monkeypatch.setattr(
+        "sys.argv",
+        ["campermit", "toggle", "1", "--json"],
+    )
+
+    cli.main()
+
+    assert capsys.readouterr().out == (
+        "{\n"
+        '  "schema_version": 1,\n'
+        '  "id": "1",\n'
+        '  "outcome": "changed",\n'
+        '  "state": "disabled"\n'
+        "}\n"
+    )
