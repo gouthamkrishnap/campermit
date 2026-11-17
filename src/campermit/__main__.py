@@ -1,3 +1,4 @@
+import errno
 import sys
 from importlib.metadata import version
 from pathlib import Path
@@ -47,7 +48,23 @@ def disable_camera(root: Path, camera_id: str) -> int:
         )
         return 1
 
-    uvc.disable(root, camera)
+    try:
+        uvc.disable(root, camera)
+    except PermissionError:
+        print(
+            "campermit: permission denied, this needs root (try sudo)",
+            file=sys.stderr,
+        )
+        return 1
+    except OSError as error:
+        if error.errno == errno.ENODEV:
+            print(f"{camera.id} is already disabled")
+            return 0
+        print(
+            f"campermit: could not disable {camera.id}: {error.strerror}",
+            file=sys.stderr,
+        )
+        return 1
     print(f"Disabled {camera.id}  {camera.name}")
     return 0
 
