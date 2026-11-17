@@ -15,8 +15,11 @@ class Camera:
     nodes: list[str]
 
 
-def read(path: Path) -> str:
-    return path.read_text().strip()
+def read(path: Path) -> str | None:
+    try:
+        return path.read_text().strip()
+    except FileNotFoundError:
+        return None
 
 
 def port_order(name: str) -> list[int]:
@@ -36,14 +39,15 @@ def discover(root: Path) -> list[Camera]:
             continue
 
         device = devices / interface.name.split(":")[0]
+        usb_id = f"{read(device / 'idVendor')}:{read(device / 'idProduct')}"
         link = interface / "driver"
         nodes = sorted((interface / "video4linux").glob("video*"))
 
         cameras.append(
             Camera(
                 id=interface.name,
-                name=read(device / "product"),
-                usb_id=f"{read(device / 'idVendor')}:{read(device / 'idProduct')}",
+                name=read(device / "product") or f"USB camera {usb_id}",
+                usb_id=usb_id,
                 driver=link.resolve().name if link.is_symlink() else None,
                 nodes=[f"/dev/{node.name}" for node in nodes],
             )

@@ -44,3 +44,19 @@ def test_cameras_are_sorted_by_port_number(sysfs):
     ids = [camera.id for camera in discover(sysfs)]
 
     assert ids == ["1-2.3:1.0", "3-6:1.0", "3-10:1.0"]
+
+
+def test_camera_without_a_product_name_still_listed(sysfs):
+    (sysfs / "bus/usb/devices/3-6/product").unlink()
+
+    [camera] = discover(sysfs)
+
+    assert camera.name == "USB camera 0408:5482"
+
+
+def test_interface_that_disappeared_is_skipped(sysfs):
+    (sysfs / "bus/usb/devices/3-8:1.0").mkdir()
+
+    cameras = discover(sysfs)
+
+    assert [camera.id for camera in cameras] == ["3-6:1.0"]
