@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# virtual environments and tool caches
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# build output
+build/
+dist/
+*.pkg.tar.zst
