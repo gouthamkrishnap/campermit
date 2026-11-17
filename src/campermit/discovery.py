@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,11 +19,17 @@ def read(path: Path) -> str:
     return path.read_text().strip()
 
 
+def port_order(name: str) -> list[int]:
+    return [int(number) for number in re.findall(r"\d+", name)]
+
+
 def discover(root: Path) -> list[Camera]:
     devices = root / "bus/usb/devices"
     cameras = []
 
-    for interface in sorted(devices.glob("*:*")):
+    for interface in sorted(
+        devices.glob("*:*"), key=lambda path: port_order(path.name)
+    ):
         if read(interface / "bInterfaceClass") != UVC_CLASS:
             continue
         if read(interface / "bInterfaceSubClass") != VIDEO_CONTROL:
