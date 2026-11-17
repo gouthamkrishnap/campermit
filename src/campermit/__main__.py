@@ -36,6 +36,17 @@ def disable_camera(root: Path, camera_id: str) -> int:
         print(f"campermit: no camera named {camera_id}", file=sys.stderr)
         return 1
 
+    if camera.driver is None:
+        print(f"{camera.id} is already disabled")
+        return 0
+
+    if camera.driver != uvc.DRIVER:
+        print(
+            f"campermit: {camera.id} is used by {camera.driver}, not {uvc.DRIVER}",
+            file=sys.stderr,
+        )
+        return 1
+
     uvc.disable(root, camera)
     print(f"Disabled {camera.id}  {camera.name}")
     return 0

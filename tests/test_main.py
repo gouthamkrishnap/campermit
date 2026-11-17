@@ -63,3 +63,27 @@ def test_disable_unknown_camera_fails_and_writes_nothing(sysfs, capsys):
     assert exit_code == 1
     assert "9-9:1.0" in capsys.readouterr().err
     assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
+
+
+def test_disable_an_already_disabled_camera_writes_nothing(sysfs, capsys):
+    unbind(sysfs, "3-6:1.0")
+
+    exit_code = main(["disable", "3-6:1.0"], root=sysfs)
+
+    assert exit_code == 0
+    assert "already disabled" in capsys.readouterr().out
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
+
+
+def test_disable_refuses_a_camera_used_by_another_driver(sysfs, capsys):
+    link = sysfs / "bus/usb/devices/3-6:1.0/driver"
+    link.unlink()
+    other = sysfs / "bus/usb/drivers/vfio-pci"
+    other.mkdir(parents=True)
+    link.symlink_to(other)
+
+    exit_code = main(["disable", "3-6:1.0"], root=sysfs)
+
+    assert exit_code == 1
+    assert "vfio-pci" in capsys.readouterr().err
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
