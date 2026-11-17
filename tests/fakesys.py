@@ -21,6 +21,8 @@ def add_interface(root, name, klass, subclass, driver=None, nodes=()):
     if driver:
         target = root / "bus/usb/drivers" / driver
         target.mkdir(parents=True, exist_ok=True)
+        (target / "bind").touch()
+        (target / "unbind").touch()
         (interface / "driver").symlink_to(target)
     for node in nodes:
         (interface / "video4linux" / node).mkdir(parents=True)

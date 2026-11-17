@@ -47,3 +47,19 @@ def test_list_with_no_cameras_says_so(tmp_path, capsys):
 
     assert exit_code == 0
     assert "No USB cameras found" in capsys.readouterr().out
+
+
+def test_disable_unbinds_the_camera(sysfs):
+    exit_code = main(["disable", "3-6:1.0"], root=sysfs)
+
+    assert exit_code == 0
+    unbind = sysfs / "bus/usb/drivers/uvcvideo/unbind"
+    assert unbind.read_text() == "3-6:1.0\n"
+
+
+def test_disable_unknown_camera_fails_and_writes_nothing(sysfs, capsys):
+    exit_code = main(["disable", "9-9:1.0"], root=sysfs)
+
+    assert exit_code == 1
+    assert "9-9:1.0" in capsys.readouterr().err
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
