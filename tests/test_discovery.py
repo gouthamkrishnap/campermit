@@ -1,4 +1,4 @@
-from fakesys import add_device, add_interface
+from fakesys import add_device, add_interface, unbind
 
 from campermit.discovery import discover
 
@@ -16,7 +16,7 @@ def test_finds_the_laptop_camera(sysfs):
 
 
 def test_disabled_camera_is_still_found(sysfs):
-    (sysfs / "bus/usb/devices/3-6:1.0/driver").unlink()
+    unbind(sysfs, "3-6:1.0")
 
     [camera] = discover(sysfs)
 
@@ -27,7 +27,7 @@ def test_two_cameras_have_independent_state(sysfs):
     add_device(sysfs, "1-2", "046d", "0825", "Logitech", "Webcam C270")
     add_interface(sysfs, "1-2:1.0", "0e", "01", "uvcvideo", nodes=("video2",))
     add_interface(sysfs, "1-2:1.1", "0e", "02", "uvcvideo")
-    (sysfs / "bus/usb/devices/3-6:1.0/driver").unlink()
+    unbind(sysfs, "3-6:1.0")
 
     cameras = {camera.id: camera for camera in discover(sysfs)}
 
@@ -60,3 +60,26 @@ def test_interface_that_disappeared_is_skipped(sysfs):
     cameras = discover(sysfs)
 
     assert [camera.id for camera in cameras] == ["3-6:1.0"]
+
+
+def test_one_usb_device_with_two_cameras_lists_both(sysfs):
+    add_device(sysfs, "2-1", "0bda", "5830", "Realtek", "Dual Camera")
+    add_interface(sysfs, "2-1:1.0", "0e", "01", "uvcvideo", nodes=("video4",))
+    add_interface(sysfs, "2-1:1.1", "0e", "02", "uvcvideo")
+    add_interface(sysfs, "2-1:1.2", "0e", "01", "uvcvideo", nodes=("video6",))
+    add_interface(sysfs, "2-1:1.3", "0e", "02", "uvcvideo")
+    unbind(sysfs, "2-1:1.2")
+
+    cameras = {camera.id: camera for camera in discover(sysfs)}
+
+    assert cameras["2-1:1.0"].driver == "uvcvideo"
+    assert cameras["2-1:1.0"].nodes == ["/dev/video4"]
+    assert cameras["2-1:1.2"].driver is None
+    assert cameras["2-1:1.2"].nodes == []
+
+
+def test_control_interface_without_streaming_is_still_listed(sysfs):
+    add_device(sysfs, "2-2", "0bda", "5831", "Realtek", "Odd Camera")
+    add_interface(sysfs, "2-2:1.0", "0e", "01", "uvcvideo")
+
+    assert "2-2:1.0" in [camera.id for camera in discover(sysfs)]

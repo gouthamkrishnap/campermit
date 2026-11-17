@@ -1,3 +1,5 @@
+from fakesys import unbind
+
 from campermit.__main__ import main
 
 
@@ -21,7 +23,7 @@ def test_list_shows_an_enabled_camera(sysfs, capsys):
 
 
 def test_list_shows_a_disabled_camera(sysfs, capsys):
-    (sysfs / "bus/usb/devices/3-6:1.0/driver").unlink()
+    unbind(sysfs, "3-6:1.0")
 
     main(["list"], root=sysfs)
 

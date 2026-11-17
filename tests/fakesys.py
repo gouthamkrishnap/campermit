@@ -1,3 +1,6 @@
+import shutil
+
+
 def write(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text + "\n")
@@ -21,3 +24,9 @@ def add_interface(root, name, klass, subclass, driver=None, nodes=()):
         (interface / "driver").symlink_to(target)
     for node in nodes:
         (interface / "video4linux" / node).mkdir(parents=True)
+
+
+def unbind(root, name):
+    interface = root / "bus/usb/devices" / name
+    (interface / "driver").unlink()
+    shutil.rmtree(interface / "video4linux", ignore_errors=True)
