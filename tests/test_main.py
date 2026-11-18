@@ -1,8 +1,10 @@
-import shutil
 import errno
 import os
+import shutil
+
 import pytest
 from fakesys import add_device, add_interface, unbind
+
 from campermit import uvc
 from campermit.__main__ import main
 

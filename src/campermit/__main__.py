@@ -1,17 +1,17 @@
 import argparse
-import errno
 import sys
 from importlib.metadata import version
 from pathlib import Path
 
 from campermit import uvc
 from campermit.discovery import Camera, discover, find_camera
+from campermit.errors import CampermitError
 
 
 def state(camera: Camera) -> str:
     if camera.driver is None:
         return "disabled"
-    if camera.driver == "uvcvideo":
+    if camera.driver == uvc.DRIVER:
         return "enabled"
     return f"used by {camera.driver}"
 
@@ -32,8 +32,7 @@ def list_cameras(root: Path) -> int:
 
 
 def set_camera(root: Path, camera_id: str, *, enabled: bool) -> int:
-    verb = "enable" if enabled else "disable"
-    state = "enabled" if enabled else "disabled"
+    word = "enabled" if enabled else "disabled"
 
     matches = find_camera(discover(root), camera_id)
 
@@ -51,54 +50,16 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool) -> int:
 
     camera = matches[0]
 
-    is_enabled = camera.driver == uvc.DRIVER
-
-    if camera.driver is not None and not is_enabled:
-        print(
-            f"campermit: {camera.id} is used by {camera.driver}, not {uvc.DRIVER}",
-            file=sys.stderr,
-        )
-        return 1
-
-    if is_enabled == enabled:
-        print(f"{camera.id} is already {state}")
-        return 0
-
-    change = uvc.enable if enabled else uvc.disable
-    already_done = errno.EBUSY if enabled else errno.ENODEV
-
     try:
-        change(root, camera)
-    except PermissionError:
-        print(
-            "campermit: permission denied, this needs root (try sudo)",
-            file=sys.stderr,
-        )
-        return 1
-    except FileNotFoundError:
-        if (root / "bus/usb/drivers" / uvc.DRIVER).is_dir():
-            print(
-                f"campermit: {camera.id} is no longer connected",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"campermit: the {uvc.DRIVER} driver is not loaded "
-                f"(try: sudo modprobe {uvc.DRIVER})",
-                file=sys.stderr,
-            )
-        return 1
-    except OSError as error:
-        if error.errno == already_done:
-            print(f"{camera.id} is already {state}")
-            return 0
-        print(
-            f"campermit: could not {verb} {camera.id}: {error.strerror}",
-            file=sys.stderr,
-        )
+        changed = uvc.set_enabled(root, camera, enabled)
+    except CampermitError as error:
+        print(f"campermit: {error}", file=sys.stderr)
         return 1
 
-    print(f"{state.capitalize()} {camera.id}  {camera.name}")
+    if changed:
+        print(f"{word.capitalize()} {camera.id}  {camera.name}")
+    else:
+        print(f"{camera.id} is already {word}")
     return 0
 
 
