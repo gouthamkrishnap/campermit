@@ -31,9 +31,7 @@ def list_cameras(root: Path) -> int:
     return 0
 
 
-def set_camera(root: Path, camera_id: str, *, enabled: bool) -> int:
-    word = "enabled" if enabled else "disabled"
-
+def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
     matches = find_camera(discover(root), camera_id)
 
     if not matches:
@@ -49,6 +47,11 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool) -> int:
         return 1
 
     camera = matches[0]
+
+    if enabled is None:
+        enabled = camera.driver != uvc.DRIVER
+
+    word = "enabled" if enabled else "disabled"
 
     try:
         changed = uvc.set_enabled(root, camera, enabled)
@@ -80,6 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, text in (
         ("enable", "turn a camera on"),
         ("disable", "turn a camera off"),
+        ("toggle", "turn a camera on if it is off, and off if it is on"),
     ):
         command = commands.add_parser(name, help=text)
         command.add_argument(
@@ -99,7 +103,8 @@ def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
     if args.command == "list":
         return list_cameras(root)
 
-    return set_camera(root, args.camera, enabled=args.command == "enable")
+    wanted = {"enable": True, "disable": False, "toggle": None}
+    return set_camera(root, args.camera, enabled=wanted[args.command])
 
 
 if __name__ == "__main__":
