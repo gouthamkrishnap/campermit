@@ -521,3 +521,28 @@ def test_list_lines_have_no_trailing_spaces(sysfs, capsys):
 
     for line in capsys.readouterr().out.splitlines():
         assert line == line.rstrip()
+
+
+def test_list_explains_video_devices_that_are_not_usb(tmp_path, capsys):
+    (tmp_path / "class/video4linux/video0").mkdir(parents=True)
+
+    exit_code = main(["list"], root=tmp_path)
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "No USB cameras found" in output
+    assert "not USB" in output
+
+
+def test_list_has_no_extra_note_when_there_are_no_video_devices(tmp_path, capsys):
+    main(["list"], root=tmp_path)
+
+    assert "not USB" not in capsys.readouterr().out
+
+
+def test_list_has_no_extra_note_when_a_usb_camera_is_found(sysfs, capsys):
+    (sysfs / "class/video4linux/video9").mkdir(parents=True)
+
+    main(["list"], root=sysfs)
+
+    assert "not USB" not in capsys.readouterr().out

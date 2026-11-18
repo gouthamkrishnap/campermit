@@ -30,6 +30,12 @@ def list_cameras(root: Path) -> int:
 
     if not cameras:
         print("No USB cameras found.")
+        if any((root / "class/video4linux").glob("video*")):
+            print(
+                "Other video devices exist (for example a built-in MIPI "
+                "camera), but they are not USB cameras, so campermit "
+                "cannot control them."
+            )
         return 0
 
     rows = [("ID", "NAME", "USB ID", "STATE", "NODES")]
