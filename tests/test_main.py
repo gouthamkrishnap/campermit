@@ -357,8 +357,8 @@ def test_toggle_unknown_camera_fails(sysfs, capsys):
     assert "9-9:1.0" in capsys.readouterr().err
 
 
-def test_toggle_without_an_id_is_a_usage_error(capsys):
-    exit_code = main(["toggle"], root=None)
+def test_toggle_without_an_id_is_a_usage_error(tmp_path, capsys):
+    exit_code = main(["toggle"], root=tmp_path)
 
     assert exit_code == 2
     assert "usage" in capsys.readouterr().err.lower()
@@ -424,14 +424,14 @@ def test_all_with_no_cameras_says_so(tmp_path, capsys):
     assert "No USB cameras found" in capsys.readouterr().out
 
 
-def test_an_id_and_all_together_is_a_usage_error(capsys):
-    exit_code = main(["disable", "3-6", "--all"], root=None)
+def test_an_id_and_all_together_is_a_usage_error(tmp_path, capsys):
+    exit_code = main(["disable", "3-6", "--all"], root=tmp_path)
 
     assert exit_code == 2
 
 
-def test_toggle_has_no_all_option(capsys):
-    exit_code = main(["toggle", "--all"], root=None)
+def test_toggle_has_no_all_option(tmp_path, capsys):
+    exit_code = main(["toggle", "--all"], root=tmp_path)
 
     assert exit_code == 2
 
@@ -491,8 +491,8 @@ def test_status_of_an_ambiguous_name_fails(sysfs, capsys):
     assert "2-1:1.2" in error
 
 
-def test_status_without_an_id_is_a_usage_error(capsys):
-    exit_code = main(["status"], root=None)
+def test_status_without_an_id_is_a_usage_error(tmp_path, capsys):
+    exit_code = main(["status"], root=tmp_path)
 
     assert exit_code == 2
 
