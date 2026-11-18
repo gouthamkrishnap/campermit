@@ -31,6 +31,22 @@ def list_cameras(root: Path) -> int:
     return 0
 
 
+def apply(root: Path, camera: Camera, enabled: bool) -> bool:
+    word = "enabled" if enabled else "disabled"
+
+    try:
+        changed = uvc.set_enabled(root, camera, enabled)
+    except CampermitError as error:
+        print(f"campermit: {camera.id}: {error}", file=sys.stderr)
+        return False
+
+    if changed:
+        print(f"{word.capitalize()} {camera.id}  {camera.name}")
+    else:
+        print(f"{camera.id} is already {word}")
+    return True
+
+
 def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
     matches = find_camera(discover(root), camera_id)
 
@@ -51,19 +67,7 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
     if enabled is None:
         enabled = camera.driver != uvc.DRIVER
 
-    word = "enabled" if enabled else "disabled"
-
-    try:
-        changed = uvc.set_enabled(root, camera, enabled)
-    except CampermitError as error:
-        print(f"campermit: {error}", file=sys.stderr)
-        return 1
-
-    if changed:
-        print(f"{word.capitalize()} {camera.id}  {camera.name}")
-    else:
-        print(f"{camera.id} is already {word}")
-    return 0
+    return 0 if apply(root, camera, enabled) else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
