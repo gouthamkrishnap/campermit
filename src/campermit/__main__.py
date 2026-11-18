@@ -1,3 +1,4 @@
+import argparse
 import errno
 import sys
 from importlib.metadata import version
@@ -88,20 +89,43 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
-    args = sys.argv[1:] if argv is None else argv
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="campermit",
+        description="Enable and disable USB webcams on Linux.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"campermit {version('campermit')}",
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
 
-    if args == ["list"]:
+    commands.add_parser("list", help="show the cameras and whether they are on")
+
+    for name, text in (
+        ("enable", "turn a camera on"),
+        ("disable", "turn a camera off"),
+    ):
+        command = commands.add_parser(name, help=text)
+        command.add_argument(
+            "camera",
+            help="a camera ID such as 3-6:1.0, or a USB device such as 3-6",
+        )
+
+    return parser
+
+
+def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as error:
+        return int(error.code or 0)
+
+    if args.command == "list":
         return list_cameras(root)
 
-    if len(args) == 2 and args[0] == "enable":
-        return set_camera(root, args[1], enabled=True)
-
-    if len(args) == 2 and args[0] == "disable":
-        return set_camera(root, args[1], enabled=False)
-
-    print(f"campermit {version('campermit')}")
-    return 0
+    return set_camera(root, args.camera, enabled=args.command == "enable")
 
 
 if __name__ == "__main__":

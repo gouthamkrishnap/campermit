@@ -8,12 +8,41 @@ from campermit import uvc
 from campermit.__main__ import main
 
 
-def test_main_print_version_and_returns_zero(capsys):
-    exit_code = main([])
-    output = capsys.readouterr().out
+def test_version_flag_prints_the_version(capsys):
+    exit_code = main(["--version"])
 
     assert exit_code == 0
-    assert output.startswith("campermit")
+    assert capsys.readouterr().out.startswith("campermit ")
+
+
+def test_help_lists_the_commands(capsys):
+    exit_code = main(["--help"])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    for command in ("list", "enable", "disable"):
+        assert command in output
+
+
+def test_no_command_is_a_usage_error(capsys):
+    exit_code = main([])
+
+    assert exit_code == 2
+    assert "usage" in capsys.readouterr().err.lower()
+
+
+def test_disable_without_an_id_is_a_usage_error(capsys):
+    exit_code = main(["disable"])
+
+    assert exit_code == 2
+    assert "usage" in capsys.readouterr().err.lower()
+
+
+def test_unknown_command_is_a_usage_error(capsys):
+    exit_code = main(["frobnicate"])
+
+    assert exit_code == 2
+    assert "usage" in capsys.readouterr().err.lower()
 
 
 def test_list_shows_an_enabled_camera(sysfs, capsys):
