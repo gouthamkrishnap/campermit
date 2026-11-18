@@ -7,7 +7,7 @@ import pytest
 from fakesys import add_device, add_interface, unbind
 
 from campermit import uvc
-from campermit.__main__ import main
+from campermit.cli import main
 
 
 def test_version_flag_prints_the_version(capsys):

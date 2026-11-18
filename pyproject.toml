@@ -16,7 +16,7 @@ dependencies = []
 path = "src/campermit/__init__.py"
 
 [project.scripts]
-campermit = "campermit.__main__:main"
+campermit = "campermit.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff"]
