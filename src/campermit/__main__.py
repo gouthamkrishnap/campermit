@@ -70,6 +70,12 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
     return 0 if apply(root, camera, enabled) else 1
 
 
+CAMERA_HELP = (
+    "a camera ID such as 3-6:1.0, a USB device such as 3-6, "
+    "or a vendor:product pair such as 0408:5482"
+)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="campermit",
@@ -93,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
         choice.add_argument(
             "camera",
             nargs="?",
-            help="a camera ID such as 3-6:1.0, or a USB device such as 3-6",
+            help=CAMERA_HELP,
         )
         choice.add_argument(
             "--all",
@@ -106,7 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     toggle.add_argument(
         "camera",
-        help="a camera ID such as 3-6:1.0, or a USB device such as 3-6",
+        help=CAMERA_HELP,
     )
 
     return parser

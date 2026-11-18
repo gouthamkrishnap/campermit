@@ -57,7 +57,11 @@ def discover(root: Path) -> list[Camera]:
 
 
 def find_camera(cameras: list[Camera], name: str) -> list[Camera]:
-    exact = [camera for camera in cameras if camera.id == name]
-    if exact:
-        return exact
-    return [camera for camera in cameras if camera.id.split(":")[0] == name]
+    for matches in (
+        [camera for camera in cameras if camera.id == name],
+        [camera for camera in cameras if camera.id.split(":")[0] == name],
+        [camera for camera in cameras if camera.usb_id == name.lower()],
+    ):
+        if matches:
+            return matches
+    return []

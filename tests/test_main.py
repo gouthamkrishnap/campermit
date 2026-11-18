@@ -433,3 +433,11 @@ def test_toggle_has_no_all_option(capsys):
     exit_code = main(["toggle", "--all"], root=None)
 
     assert exit_code == 2
+
+
+def test_disable_accepts_a_vendor_and_product_id(sysfs):
+    exit_code = main(["disable", "0408:5482"], root=sysfs)
+
+    assert exit_code == 0
+    unbind_file = sysfs / "bus/usb/drivers/uvcvideo/unbind"
+    assert unbind_file.read_text() == "3-6:1.0\n"

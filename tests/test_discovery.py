@@ -1,6 +1,6 @@
 from fakesys import add_device, add_interface, unbind
 
-from campermit.discovery import discover
+from campermit.discovery import discover, find_camera
 
 
 def test_finds_the_laptop_camera(sysfs):
@@ -83,3 +83,32 @@ def test_control_interface_without_streaming_is_still_listed(sysfs):
     add_interface(sysfs, "2-2:1.0", "0e", "01", "uvcvideo")
 
     assert "2-2:1.0" in [camera.id for camera in discover(sysfs)]
+
+
+def test_find_camera_by_usb_id(sysfs):
+    cameras = discover(sysfs)
+
+    assert [c.id for c in find_camera(cameras, "0408:5482")] == ["3-6:1.0"]
+
+
+def test_usb_id_match_ignores_letter_case(sysfs):
+    add_device(sysfs, "2-1", "0bda", "5830", "Realtek", "Some Camera")
+    add_interface(sysfs, "2-1:1.0", "0e", "01", "uvcvideo")
+
+    found = find_camera(discover(sysfs), "0BDA:5830")
+
+    assert [c.id for c in found] == ["2-1:1.0"]
+
+
+def test_two_cameras_with_the_same_usb_id_both_match(sysfs):
+    for port in ("1-2", "2-1"):
+        add_device(sysfs, port, "046d", "0825", "Logitech", "Webcam C270")
+        add_interface(sysfs, f"{port}:1.0", "0e", "01", "uvcvideo")
+
+    found = find_camera(discover(sysfs), "046d:0825")
+
+    assert [c.id for c in found] == ["1-2:1.0", "2-1:1.0"]
+
+
+def test_unknown_usb_id_matches_nothing(sysfs):
+    assert find_camera(discover(sysfs), "ffff:ffff") == []
