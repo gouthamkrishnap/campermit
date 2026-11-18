@@ -69,6 +69,46 @@ def disable_camera(root: Path, camera_id: str) -> int:
     return 0
 
 
+def enable_camera(root: Path, camera_id: str) -> int:
+    camera = next((c for c in discover(root) if c.id == camera_id), None)
+
+    if camera is None:
+        print(f"campermit: no camera named {camera_id}", file=sys.stderr)
+        return 1
+
+    if camera.driver == uvc.DRIVER:
+        print(f"{camera.id} is already enabled")
+        return 0
+
+    if camera.driver is not None:
+        print(
+            f"campermit: {camera.id} is used by {camera.driver}, not {uvc.DRIVER}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        uvc.enable(root, camera)
+    except PermissionError:
+        print(
+            "campermit: permission denied, this needs root (try sudo)",
+            file=sys.stderr,
+        )
+        return 1
+    except OSError as error:
+        if error.errno == errno.EBUSY:
+            print(f"{camera.id} is already enabled")
+            return 0
+        print(
+            f"campermit: could not enable {camera.id}: {error.strerror}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Enabled {camera.id}  {camera.name}")
+    return 0
+
+
 def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
     args = sys.argv[1:] if argv is None else argv
 
@@ -77,6 +117,9 @@ def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
 
     if len(args) == 2 and args[0] == "disable":
         return disable_camera(root, args[1])
+
+    if len(args) == 2 and args[0] == "enable":
+        return enable_camera(root, args[1])
 
     print(f"campermit {version('campermit')}")
     return 0
