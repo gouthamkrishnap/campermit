@@ -1,6 +1,7 @@
 # Hardware notes
 
 Tested on the built-in HP Wide Vision HD Camera (Quanta, USB ID `0408:5482`).
+Kernel 7.3.3-1-cachyos.
 
 ## Naming
 
@@ -37,8 +38,9 @@ control interface is the one with class `0e` and subclass `01`.
   discovery has to go by class and not by driver.
 - Writes finish before they return. The driver link is gone (or back) right
   after the command ends, so there is nothing to poll for.
-- After a bind, the video nodes appear at once as `root root`, and get group
-  `video` and the ACL a moment later. Probably udev. Not verified.
+- After a bind, the nodes came back as `video0` and `video1`, with group `video`
+  and an ACL (`crw-rw----+`) a few seconds later. Whether they are briefly
+  `root root` right after the bind is not verified.
 
 ## Errors
 
@@ -56,4 +58,3 @@ camera is already in the state we wanted.
 - Unplugging an external camera during a write.
 - Two commands running at once.
 - External USB cameras, or laptops with more than one camera.
-- Whether the nodes always come back as `video0` and `video1`.
