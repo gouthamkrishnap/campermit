@@ -441,3 +441,56 @@ def test_disable_accepts_a_vendor_and_product_id(sysfs):
     assert exit_code == 0
     unbind_file = sysfs / "bus/usb/drivers/uvcvideo/unbind"
     assert unbind_file.read_text() == "3-6:1.0\n"
+
+
+def test_status_of_an_enabled_camera(sysfs, capsys):
+    exit_code = main(["status", "3-6"], root=sysfs)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "enabled"
+
+
+def test_status_of_a_disabled_camera(sysfs, capsys):
+    unbind(sysfs, "3-6:1.0")
+
+    exit_code = main(["status", "3-6"], root=sysfs)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "disabled"
+
+
+def test_status_of_a_camera_used_by_another_driver(sysfs, capsys):
+    link = sysfs / "bus/usb/devices/3-6:1.0/driver"
+    link.unlink()
+    other = sysfs / "bus/usb/drivers/vfio-pci"
+    other.mkdir(parents=True)
+    link.symlink_to(other)
+
+    exit_code = main(["status", "3-6"], root=sysfs)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "used by vfio-pci"
+
+
+def test_status_of_an_unknown_camera_fails(sysfs, capsys):
+    exit_code = main(["status", "9-9"], root=sysfs)
+
+    assert exit_code == 1
+    assert "9-9" in capsys.readouterr().err
+
+
+def test_status_of_an_ambiguous_name_fails(sysfs, capsys):
+    add_dual_camera(sysfs)
+
+    exit_code = main(["status", "2-1"], root=sysfs)
+
+    error = capsys.readouterr().err
+    assert exit_code == 1
+    assert "2-1:1.0" in error
+    assert "2-1:1.2" in error
+
+
+def test_status_without_an_id_is_a_usage_error(capsys):
+    exit_code = main(["status"], root=None)
+
+    assert exit_code == 2

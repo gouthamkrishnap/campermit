@@ -31,6 +31,16 @@ def list_cameras(root: Path) -> int:
     return 0
 
 
+def show_status(root: Path, camera_id: str) -> int:
+    camera = pick_camera(root, camera_id)
+
+    if camera is None:
+        return 1
+
+    print(state(camera))
+    return 0
+
+
 def apply(root: Path, camera: Camera, enabled: bool) -> bool:
     word = "enabled" if enabled else "disabled"
 
@@ -47,22 +57,29 @@ def apply(root: Path, camera: Camera, enabled: bool) -> bool:
     return True
 
 
-def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
-    matches = find_camera(discover(root), camera_id)
+def pick_camera(root: Path, name: str) -> Camera | None:
+    matches = find_camera(discover(root), name)
 
     if not matches:
-        print(f"campermit: no camera named {camera_id}", file=sys.stderr)
-        return 1
+        print(f"campermit: no camera named {name}", file=sys.stderr)
+        return None
 
     if len(matches) > 1:
         ids = ", ".join(camera.id for camera in matches)
         print(
-            f"campermit: {camera_id} matches several cameras: {ids}",
+            f"campermit: {name} matches several cameras: {ids}",
             file=sys.stderr,
         )
-        return 1
+        return None
 
-    camera = matches[0]
+    return matches[0]
+
+
+def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
+    camera = pick_camera(root, camera_id)
+
+    if camera is None:
+        return 1
 
     if enabled is None:
         enabled = camera.driver != uvc.DRIVER
@@ -89,6 +106,11 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("list", help="show the cameras and whether they are on")
+
+    status = commands.add_parser(
+        "status", help="print whether a camera is enabled or disabled"
+    )
+    status.add_argument("camera", help=CAMERA_HELP)
 
     for name, text in (
         ("enable", "turn a camera on"),
@@ -137,6 +159,9 @@ def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
 
     if args.command == "list":
         return list_cameras(root)
+
+    if args.command == "status":
+        return show_status(root, args.camera)
 
     if getattr(args, "all", False):
         return set_all(root, enabled=args.command == "enable")
