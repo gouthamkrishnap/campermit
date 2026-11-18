@@ -1,13 +1,12 @@
 import re
-from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 UVC_CLASS = "0e"
 VIDEO_CONTROL = "01"
 
 
-@dataclass(frozen=True)
-class Camera:
+class Camera(NamedTuple):
     id: str
     name: str
     usb_id: str

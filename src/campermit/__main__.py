@@ -1,9 +1,8 @@
 import argparse
 import sys
-from importlib.metadata import version
 from pathlib import Path
 
-from campermit import uvc
+from campermit import __version__, uvc
 from campermit.discovery import Camera, discover, find_camera
 from campermit.errors import CampermitError
 
@@ -118,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"campermit {version('campermit')}",
+        version=f"campermit {__version__}",
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
