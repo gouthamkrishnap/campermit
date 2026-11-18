@@ -1,4 +1,5 @@
 import errno
+import json
 import os
 import shutil
 
@@ -546,3 +547,57 @@ def test_list_has_no_extra_note_when_a_usb_camera_is_found(sysfs, capsys):
     main(["list"], root=sysfs)
 
     assert "not USB" not in capsys.readouterr().out
+
+
+def test_list_json_describes_each_camera(sysfs, capsys):
+    exit_code = main(["list", "--json"], root=sysfs)
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": 1,
+        "cameras": [
+            {
+                "id": "3-6:1.0",
+                "name": "HP Wide Vision HD Camera",
+                "usb_id": "0408:5482",
+                "state": "enabled",
+                "driver": "uvcvideo",
+                "nodes": ["/dev/video0", "/dev/video1"],
+            }
+        ],
+    }
+
+
+def test_list_json_of_a_disabled_camera(sysfs, capsys):
+    unbind(sysfs, "3-6:1.0")
+
+    main(["list", "--json"], root=sysfs)
+
+    [camera] = json.loads(capsys.readouterr().out)["cameras"]
+    assert camera["state"] == "disabled"
+    assert camera["driver"] is None
+    assert camera["nodes"] == []
+
+
+def test_list_json_of_a_camera_used_by_another_driver(sysfs, capsys):
+    link = sysfs / "bus/usb/devices/3-6:1.0/driver"
+    link.unlink()
+    other = sysfs / "bus/usb/drivers/vfio-pci"
+    other.mkdir(parents=True)
+    link.symlink_to(other)
+
+    main(["list", "--json"], root=sysfs)
+
+    [camera] = json.loads(capsys.readouterr().out)["cameras"]
+    assert camera["state"] == "other"
+    assert camera["driver"] == "vfio-pci"
+
+
+def test_list_json_with_no_cameras_is_an_empty_list(tmp_path, capsys):
+    exit_code = main(["list", "--json"], root=tmp_path)
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": 1,
+        "cameras": [],
+    }

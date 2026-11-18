@@ -7,12 +7,19 @@ from campermit.discovery import Camera, discover, find_camera
 from campermit.errors import CampermitError
 
 
-def state(camera: Camera) -> str:
+def state_name(camera: Camera) -> str:
     if camera.driver is None:
         return "disabled"
     if camera.driver == uvc.DRIVER:
         return "enabled"
-    return f"used by {camera.driver}"
+    return "other"
+
+
+def state(camera: Camera) -> str:
+    name = state_name(camera)
+    if name == "other":
+        return f"used by {camera.driver}"
+    return name
 
 
 def table(rows: list[tuple[str, ...]]) -> str:
@@ -25,8 +32,29 @@ def table(rows: list[tuple[str, ...]]) -> str:
     )
 
 
-def list_cameras(root: Path) -> int:
+def camera_data(camera: Camera) -> dict:
+    return {
+        "id": camera.id,
+        "name": camera.name,
+        "usb_id": camera.usb_id,
+        "state": state_name(camera),
+        "driver": camera.driver,
+        "nodes": camera.nodes,
+    }
+
+
+def list_cameras(root: Path, *, as_json: bool = False) -> int:
     cameras = discover(root)
+
+    if as_json:
+        import json
+
+        data = {
+            "schema_version": 1,
+            "cameras": [camera_data(camera) for camera in cameras],
+        }
+        print(json.dumps(data, indent=2))
+        return 0
 
     if not cameras:
         print("No USB cameras found.")
@@ -127,7 +155,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
-    commands.add_parser("list", help="show the cameras and whether they are on")
+    list_command = commands.add_parser(
+        "list", help="show the cameras and whether they are on"
+    )
+    list_command.add_argument(
+        "--json",
+        action="store_true",
+        help="print the cameras as JSON, for scripts",
+    )
 
     status = commands.add_parser(
         "status", help="print whether a camera is enabled or disabled"
@@ -180,7 +215,7 @@ def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
         return int(error.code or 0)
 
     if args.command == "list":
-        return list_cameras(root)
+        return list_cameras(root, as_json=args.json)
 
     if args.command == "status":
         return show_status(root, args.camera)
