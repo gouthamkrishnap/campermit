@@ -16,6 +16,16 @@ def state(camera: Camera) -> str:
     return f"used by {camera.driver}"
 
 
+def table(rows: list[tuple[str, ...]]) -> str:
+    widths = [max(len(row[column]) for row in rows) for column in range(len(rows[0]))]
+    return "\n".join(
+        "  ".join(
+            cell.ljust(width) for cell, width in zip(row, widths, strict=True)
+        ).rstrip()
+        for row in rows
+    )
+
+
 def list_cameras(root: Path) -> int:
     cameras = discover(root)
 
@@ -23,11 +33,18 @@ def list_cameras(root: Path) -> int:
         print("No USB cameras found.")
         return 0
 
+    rows = [("ID", "NAME", "USB ID", "STATE", "NODES")]
     for camera in cameras:
-        print(
-            f"{camera.id}  {camera.name}  {camera.usb_id}  "
-            f"{state(camera)}  {' '.join(camera.nodes)}"
+        rows.append(
+            (
+                camera.id,
+                camera.name,
+                camera.usb_id,
+                state(camera),
+                " ".join(camera.nodes),
+            )
         )
+    print(table(rows))
     return 0
 
 

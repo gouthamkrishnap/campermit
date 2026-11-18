@@ -494,3 +494,30 @@ def test_status_without_an_id_is_a_usage_error(capsys):
     exit_code = main(["status"], root=None)
 
     assert exit_code == 2
+
+
+def test_list_starts_with_a_header_row(sysfs, capsys):
+    main(["list"], root=sysfs)
+
+    header = capsys.readouterr().out.splitlines()[0]
+    assert header.startswith("ID")
+    assert "NAME" in header
+    assert "STATE" in header
+
+
+def test_list_columns_line_up(sysfs, capsys):
+    add_second_camera(sysfs)
+
+    main(["list"], root=sysfs)
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1].index("enabled") == lines[2].index("enabled")
+
+
+def test_list_lines_have_no_trailing_spaces(sysfs, capsys):
+    unbind(sysfs, "3-6:1.0")
+
+    main(["list"], root=sysfs)
+
+    for line in capsys.readouterr().out.splitlines():
+        assert line == line.rstrip()
