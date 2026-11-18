@@ -38,7 +38,11 @@ def discover(root: Path) -> list[Camera]:
             continue
 
         device = devices / interface.name.split(":")[0]
-        usb_id = f"{read(device / 'idVendor')}:{read(device / 'idProduct')}"
+        vendor_id = read(device / "idVendor")
+        product_id = read(device / "idProduct")
+        if vendor_id is None or product_id is None:
+            continue
+        usb_id = f"{vendor_id}:{product_id}"
         link = interface / "driver"
         nodes = sorted((interface / "video4linux").glob("video*"))
 

@@ -1,3 +1,4 @@
+import pytest
 from fakesys import add_device, add_interface, unbind
 
 from campermit.discovery import discover, find_camera
@@ -112,3 +113,10 @@ def test_two_cameras_with_the_same_usb_id_both_match(sysfs):
 
 def test_unknown_usb_id_matches_nothing(sysfs):
     assert find_camera(discover(sysfs), "ffff:ffff") == []
+
+
+@pytest.mark.parametrize("missing", ["idVendor", "idProduct"])
+def test_camera_with_a_missing_usb_id_is_skipped(sysfs, missing):
+    (sysfs / "bus/usb/devices/3-6" / missing).unlink()
+
+    assert discover(sysfs) == []
