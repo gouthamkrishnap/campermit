@@ -1,9 +1,8 @@
+import shutil
 import errno
 import os
-
 import pytest
 from fakesys import add_device, add_interface, unbind
-
 from campermit import uvc
 from campermit.__main__ import main
 
@@ -289,3 +288,25 @@ def test_unknown_device_name_fails(sysfs, capsys):
 
     assert exit_code == 1
     assert "9-9" in capsys.readouterr().err
+
+
+def test_enable_says_so_when_the_driver_is_not_loaded(sysfs, capsys):
+    unbind(sysfs, "3-6:1.0")
+    shutil.rmtree(sysfs / "bus/usb/drivers/uvcvideo")
+
+    exit_code = main(["enable", "3-6:1.0"], root=sysfs)
+
+    assert exit_code == 1
+    assert "modprobe uvcvideo" in capsys.readouterr().err
+
+
+def test_disable_says_so_when_the_camera_vanished(sysfs, capsys, monkeypatch):
+    def vanished(path, text):
+        raise FileNotFoundError(errno.ENOENT, "No such file or directory")
+
+    monkeypatch.setattr(uvc, "write", vanished)
+
+    exit_code = main(["disable", "3-6:1.0"], root=sysfs)
+
+    assert exit_code == 1
+    assert "no longer connected" in capsys.readouterr().err

@@ -1,3 +1,5 @@
+import errno
+import os
 from pathlib import Path
 
 from campermit.discovery import Camera
@@ -6,7 +8,14 @@ DRIVER = "uvcvideo"
 
 
 def write(path: Path, text: str) -> None:
-    path.write_text(text + "\n")
+    data = (text + "\n").encode()
+    fd = os.open(path, os.O_WRONLY)
+    try:
+        written = os.write(fd, data)
+    finally:
+        os.close(fd)
+    if written != len(data):
+        raise OSError(errno.EIO, "short write")
 
 
 def disable(root: Path, camera: Camera) -> None:

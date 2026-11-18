@@ -75,6 +75,19 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool) -> int:
             file=sys.stderr,
         )
         return 1
+    except FileNotFoundError:
+        if (root / "bus/usb/drivers" / uvc.DRIVER).is_dir():
+            print(
+                f"campermit: {camera.id} is no longer connected",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"campermit: the {uvc.DRIVER} driver is not loaded "
+                f"(try: sudo modprobe {uvc.DRIVER})",
+                file=sys.stderr,
+            )
+        return 1
     except OSError as error:
         if error.errno == already_done:
             print(f"{camera.id} is already {state}")
