@@ -54,3 +54,10 @@ def discover(root: Path) -> list[Camera]:
         )
 
     return cameras
+
+
+def find_camera(cameras: list[Camera], name: str) -> list[Camera]:
+    exact = [camera for camera in cameras if camera.id == name]
+    if exact:
+        return exact
+    return [camera for camera in cameras if camera.id.split(":")[0] == name]

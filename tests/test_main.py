@@ -2,7 +2,7 @@ import errno
 import os
 
 import pytest
-from fakesys import unbind
+from fakesys import add_device, add_interface, unbind
 
 from campermit import uvc
 from campermit.__main__ import main
@@ -205,3 +205,58 @@ def test_enable_reports_any_other_write_error(sysfs, capsys, monkeypatch):
 
     assert exit_code == 1
     assert "Input/output error" in capsys.readouterr().err
+
+
+def add_dual_camera(sysfs):
+    add_device(sysfs, "2-1", "0bda", "5830", "Realtek", "Dual Camera")
+    add_interface(sysfs, "2-1:1.0", "0e", "01", "uvcvideo", nodes=("video4",))
+    add_interface(sysfs, "2-1:1.1", "0e", "02", "uvcvideo")
+    add_interface(sysfs, "2-1:1.2", "0e", "01", "uvcvideo", nodes=("video6",))
+    add_interface(sysfs, "2-1:1.3", "0e", "02", "uvcvideo")
+
+
+def test_disable_accepts_the_usb_device_name(sysfs):
+    exit_code = main(["disable", "3-6"], root=sysfs)
+
+    assert exit_code == 0
+    unbind_file = sysfs / "bus/usb/drivers/uvcvideo/unbind"
+    assert unbind_file.read_text() == "3-6:1.0\n"
+
+
+def test_enable_accepts_the_usb_device_name(sysfs):
+    unbind(sysfs, "3-6:1.0")
+
+    exit_code = main(["enable", "3-6"], root=sysfs)
+
+    assert exit_code == 0
+    bind_file = sysfs / "bus/usb/drivers/uvcvideo/bind"
+    assert bind_file.read_text() == "3-6:1.0\n"
+
+
+def test_device_name_with_two_cameras_is_ambiguous(sysfs, capsys):
+    add_dual_camera(sysfs)
+
+    exit_code = main(["disable", "2-1"], root=sysfs)
+
+    error = capsys.readouterr().err
+    assert exit_code == 1
+    assert "2-1:1.0" in error
+    assert "2-1:1.2" in error
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
+
+
+def test_exact_id_works_even_when_the_device_has_two_cameras(sysfs):
+    add_dual_camera(sysfs)
+
+    exit_code = main(["disable", "2-1:1.2"], root=sysfs)
+
+    assert exit_code == 0
+    unbind_file = sysfs / "bus/usb/drivers/uvcvideo/unbind"
+    assert unbind_file.read_text() == "2-1:1.2\n"
+
+
+def test_unknown_device_name_fails(sysfs, capsys):
+    exit_code = main(["disable", "9-9"], root=sysfs)
+
+    assert exit_code == 1
+    assert "9-9" in capsys.readouterr().err

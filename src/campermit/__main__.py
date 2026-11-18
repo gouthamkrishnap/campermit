@@ -4,7 +4,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from campermit import uvc
-from campermit.discovery import Camera, discover
+from campermit.discovery import Camera, discover, find_camera
 
 
 def state(camera: Camera) -> str:
@@ -34,11 +34,21 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool) -> int:
     verb = "enable" if enabled else "disable"
     state = "enabled" if enabled else "disabled"
 
-    camera = next((c for c in discover(root) if c.id == camera_id), None)
+    matches = find_camera(discover(root), camera_id)
 
-    if camera is None:
+    if not matches:
         print(f"campermit: no camera named {camera_id}", file=sys.stderr)
         return 1
+
+    if len(matches) > 1:
+        ids = ", ".join(camera.id for camera in matches)
+        print(
+            f"campermit: {camera_id} matches several cameras: {ids}",
+            file=sys.stderr,
+        )
+        return 1
+
+    camera = matches[0]
 
     is_enabled = camera.driver == uvc.DRIVER
 
