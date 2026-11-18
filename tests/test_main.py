@@ -361,3 +361,75 @@ def test_toggle_without_an_id_is_a_usage_error(capsys):
 
     assert exit_code == 2
     assert "usage" in capsys.readouterr().err.lower()
+
+
+def add_second_camera(sysfs):
+    add_device(sysfs, "1-2", "046d", "0825", "Logitech", "Webcam C270")
+    add_interface(sysfs, "1-2:1.0", "0e", "01", "uvcvideo", nodes=("video2",))
+    add_interface(sysfs, "1-2:1.1", "0e", "02", "uvcvideo")
+
+
+@pytest.fixture
+def writes(monkeypatch):
+    recorded = []
+    monkeypatch.setattr(
+        uvc, "write", lambda path, text: recorded.append((path.name, text))
+    )
+    return recorded
+
+
+def test_disable_all_disables_every_camera(sysfs, writes, capsys):
+    add_second_camera(sysfs)
+
+    exit_code = main(["disable", "--all"], root=sysfs)
+
+    assert exit_code == 0
+    assert writes == [("unbind", "1-2:1.0"), ("unbind", "3-6:1.0")]
+    output = capsys.readouterr().out
+    assert "Disabled 1-2:1.0" in output
+    assert "Disabled 3-6:1.0" in output
+
+
+def test_enable_all_leaves_enabled_cameras_alone(sysfs, writes, capsys):
+    add_second_camera(sysfs)
+    unbind(sysfs, "1-2:1.0")
+
+    exit_code = main(["enable", "--all"], root=sysfs)
+
+    assert exit_code == 0
+    assert writes == [("bind", "1-2:1.0")]
+    assert "3-6:1.0 is already enabled" in capsys.readouterr().out
+
+
+def test_all_carries_on_after_a_failure(sysfs, writes, capsys):
+    add_second_camera(sysfs)
+    link = sysfs / "bus/usb/devices/1-2:1.0/driver"
+    link.unlink()
+    other = sysfs / "bus/usb/drivers/vfio-pci"
+    other.mkdir(parents=True)
+    link.symlink_to(other)
+
+    exit_code = main(["disable", "--all"], root=sysfs)
+
+    assert exit_code == 1
+    assert writes == [("unbind", "3-6:1.0")]
+    assert "vfio-pci" in capsys.readouterr().err
+
+
+def test_all_with_no_cameras_says_so(tmp_path, capsys):
+    exit_code = main(["disable", "--all"], root=tmp_path)
+
+    assert exit_code == 0
+    assert "No USB cameras found" in capsys.readouterr().out
+
+
+def test_an_id_and_all_together_is_a_usage_error(capsys):
+    exit_code = main(["disable", "3-6", "--all"], root=None)
+
+    assert exit_code == 2
+
+
+def test_toggle_has_no_all_option(capsys):
+    exit_code = main(["toggle", "--all"], root=None)
+
+    assert exit_code == 2

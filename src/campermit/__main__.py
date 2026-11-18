@@ -87,15 +87,40 @@ def build_parser() -> argparse.ArgumentParser:
     for name, text in (
         ("enable", "turn a camera on"),
         ("disable", "turn a camera off"),
-        ("toggle", "turn a camera on if it is off, and off if it is on"),
     ):
         command = commands.add_parser(name, help=text)
-        command.add_argument(
+        choice = command.add_mutually_exclusive_group(required=True)
+        choice.add_argument(
             "camera",
+            nargs="?",
             help="a camera ID such as 3-6:1.0, or a USB device such as 3-6",
         )
+        choice.add_argument(
+            "--all",
+            action="store_true",
+            help="do it for every camera instead of one",
+        )
+
+    toggle = commands.add_parser(
+        "toggle", help="turn a camera on if it is off, and off if it is on"
+    )
+    toggle.add_argument(
+        "camera",
+        help="a camera ID such as 3-6:1.0, or a USB device such as 3-6",
+    )
 
     return parser
+
+
+def set_all(root: Path, *, enabled: bool) -> int:
+    cameras = discover(root)
+
+    if not cameras:
+        print("No USB cameras found.")
+        return 0
+
+    results = [apply(root, camera, enabled) for camera in cameras]
+    return 0 if all(results) else 1
 
 
 def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
@@ -106,6 +131,9 @@ def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
 
     if args.command == "list":
         return list_cameras(root)
+
+    if getattr(args, "all", False):
+        return set_all(root, enabled=args.command == "enable")
 
     wanted = {"enable": True, "disable": False, "toggle": None}
     return set_camera(root, args.camera, enabled=wanted[args.command])
