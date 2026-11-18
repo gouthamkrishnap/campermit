@@ -10,13 +10,33 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
+authors = [{ name = "Goutham Krishna" }]
+keywords = ["webcam", "camera", "uvc", "usb", "privacy", "linux", "sysfs"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Hardware",
+    "Topic :: Utilities",
+]
 dependencies = []
 
-[tool.hatch.version]
-path = "src/campermit/__init__.py"
+[project.urls]
+Homepage = "https://github.com/gouthamkrishnap/campermit"
+Source = "https://github.com/gouthamkrishnap/campermit"
+Issues = "https://github.com/gouthamkrishnap/campermit/issues"
 
 [project.scripts]
 campermit = "campermit.cli:main"
+
+[tool.hatch.version]
+path = "src/campermit/__init__.py"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff"]
