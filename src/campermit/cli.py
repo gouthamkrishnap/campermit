@@ -6,6 +6,8 @@ from campermit import __version__, uvc
 from campermit.discovery import Camera, discover, find_camera
 from campermit.errors import CampermitError
 
+NO_CAMERAS = "No USB cameras found."
+
 
 def state_name(camera: Camera) -> str:
     if camera.driver is None:
@@ -57,7 +59,7 @@ def list_cameras(root: Path, *, as_json: bool = False) -> int:
         return 0
 
     if not cameras:
-        print("No USB cameras found.")
+        print(NO_CAMERAS)
         if any((root / "class/video4linux").glob("video*")):
             print(
                 "Other video devices exist (for example a built-in MIPI "
@@ -203,7 +205,7 @@ def set_all(root: Path, *, enabled: bool) -> int:
     cameras = discover(root)
 
     if not cameras:
-        print("No USB cameras found.")
+        print(NO_CAMERAS)
         return 0
 
     results = [apply(root, camera, enabled) for camera in cameras]
