@@ -38,6 +38,9 @@ control interface is the one with class `0e` and subclass `01`.
   discovery has to go by class and not by driver.
 - Writes finish before they return. The driver link is gone (or back) right
   after the command ends, so there is nothing to poll for.
+- A disabled camera stayed disabled after a suspend and resume.
+- After a reboot the camera is bound again, and `video0` and `video1` are back.
+  Nothing was set to disable it at boot.
 - After a bind, the nodes came back as `video0` and `video1`, with group `video`
   and an ACL (`crw-rw----+`) a few seconds later. Whether they are briefly
   `root root` right after the bind is not verified.
