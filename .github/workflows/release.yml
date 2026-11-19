@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip build twine
+      - run: python -m pip install -e . --group dev
+      - run: pytest
+      - name: Check the tag matches the package version
+        run: |
+          version=$(grep -oP '__version__ = "\K[^"]+' src/campermit/__init__.py)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match version $version"
+            exit 1
+          fi
+      - run: python -m build
+      - run: twine check dist/*
+      - name: Write checksums
+        run: cd dist && sha256sum *.whl *.tar.gz > SHA256SUMS
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flag=""
+          case "${GITHUB_REF_NAME#v}" in *[a-z]*) flag="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" --generate-notes $flag
