@@ -60,11 +60,17 @@ def discover(root: Path) -> list[Camera]:
 
 
 def find_camera(cameras: list[Camera], name: str) -> list[Camera]:
-    for matches in (
+    text = name.strip().lower()
+    levels = [
         [camera for camera in cameras if camera.id == name],
         [camera for camera in cameras if camera.id.split(":")[0] == name],
-        [camera for camera in cameras if camera.usb_id == name.lower()],
-    ):
+        [camera for camera in cameras if camera.usb_id == text],
+        [camera for camera in cameras if camera.name.lower() == text],
+    ]
+    if len(text) >= 3:
+        levels.append([camera for camera in cameras if text in camera.name.lower()])
+
+    for matches in levels:
         if matches:
             return matches
     return []

@@ -120,3 +120,32 @@ def test_camera_with_a_missing_usb_id_is_skipped(sysfs, missing):
     (sysfs / "bus/usb/devices/3-6" / missing).unlink()
 
     assert discover(sysfs) == []
+
+
+def test_find_camera_by_full_name_ignoring_case(sysfs):
+    found = find_camera(discover(sysfs), "hp wide vision hd camera")
+
+    assert [c.id for c in found] == ["3-6:1.0"]
+
+
+def test_find_camera_by_part_of_the_name(sysfs):
+    found = find_camera(discover(sysfs), "Wide Vision")
+
+    assert [c.id for c in found] == ["3-6:1.0"]
+
+
+def test_a_word_in_several_names_matches_all_of_them(sysfs):
+    add_device(sysfs, "1-2", "046d", "0825", "Logitech", "Logitech Camera")
+    add_interface(sysfs, "1-2:1.0", "0e", "01", "uvcvideo")
+
+    found = find_camera(discover(sysfs), "camera")
+
+    assert [c.id for c in found] == ["1-2:1.0", "3-6:1.0"]
+
+
+def test_two_letters_are_too_short_to_match_a_name(sysfs):
+    assert find_camera(discover(sysfs), "hp") == []
+
+
+def test_spaces_around_a_name_do_not_count_as_letters(sysfs):
+    assert find_camera(discover(sysfs), "hp ") == []
