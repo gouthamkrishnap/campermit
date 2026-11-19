@@ -601,3 +601,38 @@ def test_list_json_with_no_cameras_is_an_empty_list(tmp_path, capsys):
         "schema_version": 1,
         "cameras": [],
     }
+
+
+def test_disable_accepts_part_of_the_camera_name(sysfs):
+    exit_code = main(["disable", "wide vision"], root=sysfs)
+
+    assert exit_code == 0
+    unbind_file = sysfs / "bus/usb/drivers/uvcvideo/unbind"
+    assert unbind_file.read_text() == "3-6:1.0\n"
+
+
+def test_a_name_in_quotes_can_have_several_words(sysfs, capsys):
+    exit_code = main(["status", "HP Wide"], root=sysfs)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "enabled"
+
+
+def test_extra_words_ask_for_quotes(sysfs, capsys):
+    exit_code = main(["disable", "HP", "Wide"], root=sysfs)
+
+    assert exit_code == 2
+    assert "quotes" in capsys.readouterr().err
+
+
+def test_extra_words_change_nothing(sysfs, writes):
+    main(["disable", "HP", "Wide"], root=sysfs)
+
+    assert writes == []
+
+
+def test_a_too_short_name_says_why_it_did_not_match(sysfs, capsys):
+    exit_code = main(["status", "hp"], root=sysfs)
+
+    assert exit_code == 1
+    assert "3 characters" in capsys.readouterr().err

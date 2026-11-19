@@ -111,7 +111,8 @@ def pick_camera(root: Path, name: str) -> Camera | None:
     matches = find_camera(discover(root), name)
 
     if not matches:
-        print(f"campermit: no camera named {name}", file=sys.stderr)
+        hint = " (a name needs at least 3 characters)" if len(name.strip()) < 3 else ""
+        print(f"campermit: no camera named {name}{hint}", file=sys.stderr)
         return None
 
     if len(matches) > 1:
@@ -139,7 +140,8 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
 
 CAMERA_HELP = (
     "a camera ID such as 3-6:1.0, a USB device such as 3-6, "
-    "or a vendor:product pair such as 0408:5482"
+    "a vendor:product pair such as 0408:5482, or part of its name "
+    "(3 or more characters, in quotes if it has spaces)"
 )
 
 
@@ -210,9 +212,17 @@ def set_all(root: Path, *, enabled: bool) -> int:
 
 def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
     try:
-        args = build_parser().parse_args(argv)
+        args, extra = build_parser().parse_known_args(argv)
     except SystemExit as error:
         return int(error.code or 0)
+
+    if extra:
+        words = " ".join(extra)
+        print(
+            f'campermit: unexpected "{words}". A camera name with spaces needs quotes.',
+            file=sys.stderr,
+        )
+        return 2
 
     if args.command == "list":
         return list_cameras(root, as_json=args.json)
