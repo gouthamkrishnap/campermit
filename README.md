@@ -18,10 +18,26 @@ $ sudo campermit disable 3-6
 Disabled 3-6:1.0  HP Wide Vision HD Camera
 ```
 
+The IDs in these examples come from the laptop campermit was tested on. Run `campermit list` to see yours.
+
 ## Install
 
-Nothing is released yet, so for now you install from source. You need Python 3.11
-or newer.
+### Arch Linux
+
+Build and install the package from this repository. `makepkg` downloads the
+release archive and checks it against a checksum:
+
+```
+git clone https://github.com/gouthamkrishnap/campermit.git
+cd campermit/packaging/arch
+makepkg -si
+```
+
+After that, `sudo campermit disable ID` works as it is, where ID comes from `campermit list`.
+
+### Other distributions
+
+You need Python 3.11 or newer.
 
 ```
 git clone https://github.com/gouthamkrishnap/campermit.git
@@ -104,7 +120,7 @@ Exit codes: `0` when the camera ended up as asked, `1` when something failed,
 - It comes back on after a reboot. Disabling at every boot is not built in.
 - Replugging an external camera has not been tested.
 - Uninstalling campermit does not change any camera. To get one back right away,
-  run `sudo .venv/bin/campermit enable --all` before removing it, or reboot. If
+  run `sudo campermit enable --all` before removing it, or reboot. If
   campermit is already gone, this does the same by hand (use your camera's ID):
 
   ```

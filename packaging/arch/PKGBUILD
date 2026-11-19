@@ -1,0 +1,22 @@
+pkgname=campermit
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Enable and disable USB webcams on Linux from the command line"
+arch=('any')
+url="https://github.com/gouthamkrishnap/campermit"
+license=('MIT')
+depends=('python')
+makedepends=('python-build' 'python-installer' 'python-hatchling')
+source=("$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('f2b59b2277085facccf1149f2fd3552646760d439ce4bd5ee6b5e352493ee745')
+
+build() {
+  cd "$pkgname-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
