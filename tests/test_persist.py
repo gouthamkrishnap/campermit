@@ -1,3 +1,5 @@
+import pytest
+
 from campermit import persist
 
 
@@ -50,3 +52,26 @@ def test_removing_a_camera_that_is_not_listed_does_nothing(tmp_path):
 
     assert persist.remove(path, "3-6:1.0") is False
     assert not path.exists()
+
+
+def test_writing_leaves_no_temp_file_behind(tmp_path):
+    path = tmp_path / "disabled"
+
+    persist.add(path, "3-6:1.0")
+
+    assert [item.name for item in tmp_path.iterdir()] == ["disabled"]
+
+
+def test_a_failed_write_keeps_the_old_file(tmp_path, monkeypatch):
+    path = tmp_path / "disabled"
+    persist.add(path, "3-6:1.0")
+
+    def fail(source, target):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(persist.os, "replace", fail)
+
+    with pytest.raises(OSError):
+        persist.add(path, "1-2:1.0")
+
+    assert path.read_text() == "3-6:1.0\n"
