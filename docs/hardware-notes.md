@@ -45,6 +45,16 @@ control interface is the one with class `0e` and subclass `01`.
   and an ACL (`crw-rw----+`) a few seconds later. Whether they are briefly
   `root root` right after the bind is not verified.
 
+## udev
+
+- A rule on `bind` for `3-6:1.0` fired once when the camera was enabled, and not
+  when it was disabled.
+- At boot the same rule fired for both `add` and `bind`, in the same second.
+- A rule that unbinds the camera from `RUN+=` works, and the camera was still
+  disabled after a reboot.
+- With the rule installed, `campermit enable` left the camera on, because it
+  takes the camera off the list before binding it.
+
 ## Errors
 
 | Write | State | Error |
@@ -61,3 +71,4 @@ camera is already in the state we wanted.
 - Unplugging an external camera during a write.
 - Two commands running at once.
 - External USB cameras, or laptops with more than one camera.
+- Which events fire when `uvcvideo` is loaded before udev starts.

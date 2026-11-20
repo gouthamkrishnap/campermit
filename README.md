@@ -55,6 +55,15 @@ sudo .venv/bin/campermit disable 3-6
 
 Listing cameras and reading their state works without root.
 
+`--persist` also needs the udev rule. The Arch package installs it. On other
+distributions, install it yourself, with the path to your `campermit` in it (shown
+here for the virtual environment above):
+
+```
+sed "s|/usr/bin/campermit|$PWD/.venv/bin/campermit|" packaging/udev/99-campermit.rules | sudo tee /etc/udev/rules.d/99-campermit.rules
+sudo udevadm control --reload
+```
+
 ## Usage
 
 ```
@@ -87,6 +96,18 @@ selective, name the camera.
 
 Asking for a state the camera is already in is not an error.
 
+### Keeping a camera off
+
+`disable` lasts until the next reboot. To keep a camera off, add `--persist`:
+
+```
+sudo campermit disable 3-6 --persist
+```
+
+This saves the camera's ID in `/etc/campermit/disabled`. A udev rule reads that file each time a camera appears, at boot or when you plug it in, and turns the camera off again. `enable` takes the camera out of the file, so it stays on. `disable --all --persist` does it for every camera `list` shows.
+
+The rule runs `campermit restore ID`. You don't need to run it yourself.
+
 ### For scripts
 
 `campermit list --json` prints the cameras as JSON:
@@ -117,7 +138,9 @@ Exit codes: `0` when the camera ended up as asked, `1` when something failed,
 ## What to expect
 
 - A disabled camera stays disabled through suspend and resume.
-- It comes back on after a reboot. Disabling at every boot is not built in.
+- Without `--persist`, a disabled camera comes back on after a reboot. With it, the
+  camera is turned off again as soon as its driver attaches, so it is on briefly at
+  boot.
 - Replugging an external camera has not been tested.
 - Uninstalling campermit does not change any camera. To get one back right away,
   run `sudo campermit enable --all` before removing it, or reboot. If

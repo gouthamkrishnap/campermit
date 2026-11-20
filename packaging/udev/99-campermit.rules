@@ -1,0 +1,5 @@
+# Turn cameras that are on the disabled list back off after a reboot or replug.
+# restore does nothing unless the camera is listed in /etc/campermit/disabled.
+ACTION=="add|bind", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", \
+  ATTR{bInterfaceClass}=="0e", ATTR{bInterfaceSubClass}=="01", \
+  RUN+="/usr/bin/campermit restore %k"
