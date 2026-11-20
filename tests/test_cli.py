@@ -636,3 +636,53 @@ def test_a_too_short_name_says_why_it_did_not_match(sysfs, capsys):
 
     assert exit_code == 1
     assert "3 characters" in capsys.readouterr().err
+
+
+def test_restore_disables_a_camera_on_the_list(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == "3-6:1.0\n"
+
+
+def test_restore_leaves_a_camera_that_is_not_on_the_list(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("1-2:1.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
+
+
+def test_restore_with_no_list_file_does_nothing(sysfs, tmp_path):
+    exit_code = main(
+        ["restore", "3-6:1.0"], root=sysfs, disabled_file=tmp_path / "missing"
+    )
+
+    assert exit_code == 0
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
+
+
+def test_restore_ignores_a_listed_camera_that_is_gone(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("9-9:1.0\n")
+
+    exit_code = main(["restore", "9-9:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
+
+
+def test_restore_is_fine_when_the_camera_is_already_off(sysfs, tmp_path):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""

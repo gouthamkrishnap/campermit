@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from campermit import __version__, uvc
+from campermit import __version__, persist, uvc
 from campermit.discovery import Camera, discover, find_camera
 from campermit.errors import CampermitError
 
@@ -198,6 +198,13 @@ def build_parser() -> argparse.ArgumentParser:
         help=CAMERA_HELP,
     )
 
+    restore_command = commands.add_parser(
+        "restore",
+        help="turn a camera off again if it is on the kept-off list "
+        "(run by the udev rule, you rarely need it)",
+    )
+    restore_command.add_argument("camera", help="the exact camera ID, such as 3-6:1.0")
+
     return parser
 
 
@@ -212,7 +219,22 @@ def set_all(root: Path, *, enabled: bool) -> int:
     return 0 if all(results) else 1
 
 
-def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
+def restore(root: Path, disabled_file: Path, camera_id: str) -> int:
+    if camera_id not in persist.load(disabled_file):
+        return 0
+
+    for camera in discover(root):
+        if camera.id == camera_id:
+            return 0 if apply(root, camera, False) else 1
+
+    return 0
+
+
+def main(
+    argv: list[str] | None = None,
+    root: Path = Path("/sys"),
+    disabled_file: Path = persist.DEFAULT_PATH,
+) -> int:
     try:
         args, extra = build_parser().parse_known_args(argv)
     except SystemExit as error:
@@ -231,6 +253,9 @@ def main(argv: list[str] | None = None, root: Path = Path("/sys")) -> int:
 
     if args.command == "status":
         return show_status(root, args.camera)
+
+    if args.command == "restore":
+        return restore(root, disabled_file, args.camera)
 
     if getattr(args, "all", False):
         return set_all(root, enabled=args.command == "enable")
