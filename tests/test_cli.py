@@ -6,7 +6,7 @@ import shutil
 import pytest
 from fakesys import add_device, add_interface, unbind
 
-from campermit import uvc
+from campermit import persist, uvc
 from campermit.cli import main
 
 
@@ -686,3 +686,147 @@ def test_restore_is_fine_when_the_camera_is_already_off(sysfs, tmp_path):
 
     assert exit_code == 0
     assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == ""
+
+
+UNBIND = "bus/usb/drivers/uvcvideo/unbind"
+BIND = "bus/usb/drivers/uvcvideo/bind"
+
+
+def test_restore_keeps_the_camera_on_the_list(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0\n")
+
+    main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert persist.load(listing) == ["3-6:1.0"]
+
+
+def test_disable_persist_unbinds_and_adds_to_the_list(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+
+    exit_code = main(
+        ["disable", "3-6:1.0", "--persist"], root=sysfs, disabled_file=listing
+    )
+
+    assert exit_code == 0
+    assert (sysfs / UNBIND).read_text() == "3-6:1.0\n"
+    assert persist.load(listing) == ["3-6:1.0"]
+
+
+def test_disable_without_persist_leaves_the_list_alone(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+
+    exit_code = main(["disable", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert not listing.exists()
+
+
+def test_disable_persist_on_an_already_disabled_camera_still_lists_it(sysfs, tmp_path):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+
+    exit_code = main(
+        ["disable", "3-6:1.0", "--persist"], root=sysfs, disabled_file=listing
+    )
+
+    assert exit_code == 0
+    assert (sysfs / UNBIND).read_text() == ""
+    assert persist.load(listing) == ["3-6:1.0"]
+
+
+def test_disable_persist_does_not_list_a_camera_it_could_not_disable(sysfs, tmp_path):
+    link = sysfs / "bus/usb/devices/3-6:1.0/driver"
+    link.unlink()
+    other = sysfs / "bus/usb/drivers/vfio-pci"
+    other.mkdir(parents=True)
+    link.symlink_to(other)
+    listing = tmp_path / "disabled"
+
+    exit_code = main(
+        ["disable", "3-6:1.0", "--persist"], root=sysfs, disabled_file=listing
+    )
+
+    assert exit_code == 1
+    assert not listing.exists()
+
+
+def test_disable_all_persist_lists_every_camera(sysfs, tmp_path):
+    add_device(sysfs, "1-2", "046d", "0825", "Logitech", "Webcam C270")
+    add_interface(sysfs, "1-2:1.0", "0e", "01", "uvcvideo", nodes=("video2",))
+    listing = tmp_path / "disabled"
+
+    exit_code = main(
+        ["disable", "--all", "--persist"], root=sysfs, disabled_file=listing
+    )
+
+    assert exit_code == 0
+    assert sorted(persist.load(listing)) == ["1-2:1.0", "3-6:1.0"]
+
+
+def test_disable_persist_reports_a_list_that_cannot_be_written(
+    sysfs, tmp_path, capsys, monkeypatch
+):
+    def refuse(path, camera_id):
+        raise PermissionError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr(persist, "add", refuse)
+
+    exit_code = main(
+        ["disable", "3-6:1.0", "--persist"],
+        root=sysfs,
+        disabled_file=tmp_path / "disabled",
+    )
+
+    assert exit_code == 1
+    assert (sysfs / UNBIND).read_text() == "3-6:1.0\n"
+    assert "sudo" in capsys.readouterr().err
+
+
+def test_enable_removes_the_camera_from_the_list(sysfs, tmp_path):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0\n1-2:1.0\n")
+
+    exit_code = main(["enable", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / BIND).read_text() == "3-6:1.0\n"
+    assert persist.load(listing) == ["1-2:1.0"]
+
+
+def test_enable_removes_the_camera_even_if_it_is_already_on(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0\n")
+
+    exit_code = main(["enable", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert persist.load(listing) == []
+
+
+def test_enable_forgets_the_camera_before_binding_it(sysfs, tmp_path, monkeypatch):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0\n")
+    seen = []
+
+    def spy(path, text):
+        seen.append(persist.load(listing))
+
+    monkeypatch.setattr(uvc, "write", spy)
+
+    main(["enable", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert seen == [[]]
+
+
+def test_toggling_a_camera_on_removes_it_from_the_list(sysfs, tmp_path):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0\n")
+
+    exit_code = main(["toggle", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert persist.load(listing) == []

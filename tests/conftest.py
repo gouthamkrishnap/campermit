@@ -1,6 +1,8 @@
 import pytest
 from fakesys import add_device, add_interface
 
+from campermit import persist
+
 
 @pytest.fixture
 def sysfs(tmp_path):
@@ -18,3 +20,9 @@ def sysfs(tmp_path):
     add_interface(tmp_path, "3-7:1.1", "e0", "01", "btusb")
 
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def no_real_list(tmp_path_factory, monkeypatch):
+    path = tmp_path_factory.mktemp("etc") / "disabled"
+    monkeypatch.setattr(persist, "DEFAULT_PATH", path)

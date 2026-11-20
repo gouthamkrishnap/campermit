@@ -93,8 +93,35 @@ def show_status(root: Path, camera_id: str) -> int:
     return 0
 
 
-def apply(root: Path, camera: Camera, enabled: bool) -> bool:
+def list_error(error: OSError) -> str:
+    if isinstance(error, PermissionError):
+        return "permission denied, this needs root (try sudo)"
+    return error.strerror or str(error)
+
+
+def apply(
+    root: Path,
+    camera: Camera,
+    enabled: bool,
+    disabled_file: Path,
+    *,
+    keep: bool = False,
+) -> bool:
     word = "enabled" if enabled else "disabled"
+
+    if enabled:
+        # Forget the camera before binding it. Binding fires the udev rule,
+        # which runs restore, and restore would switch the camera straight
+        # off again if it were still on the list.
+        try:
+            persist.remove(disabled_file, camera.id)
+        except OSError as error:
+            print(
+                f"campermit: {camera.id}: could not update {disabled_file}: "
+                f"{list_error(error)}",
+                file=sys.stderr,
+            )
+            return False
 
     try:
         changed = uvc.set_enabled(root, camera, enabled)
@@ -106,6 +133,19 @@ def apply(root: Path, camera: Camera, enabled: bool) -> bool:
         print(f"{word.capitalize()} {camera.id}  {camera.name}")
     else:
         print(f"{camera.id} is already {word}")
+
+    if keep:
+        try:
+            persist.add(disabled_file, camera.id)
+        except OSError as error:
+            print(
+                f"campermit: {camera.id}: disabled, but could not save that to "
+                f"{disabled_file}: {list_error(error)}",
+                file=sys.stderr,
+            )
+            return False
+        print(f"{camera.id} will stay disabled after a reboot or replug")
+
     return True
 
 
@@ -128,7 +168,14 @@ def pick_camera(root: Path, name: str) -> Camera | None:
     return matches[0]
 
 
-def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
+def set_camera(
+    root: Path,
+    camera_id: str,
+    disabled_file: Path,
+    *,
+    enabled: bool | None,
+    keep: bool = False,
+) -> int:
     camera = pick_camera(root, camera_id)
 
     if camera is None:
@@ -137,7 +184,7 @@ def set_camera(root: Path, camera_id: str, *, enabled: bool | None) -> int:
     if enabled is None:
         enabled = camera.driver != uvc.DRIVER
 
-    return 0 if apply(root, camera, enabled) else 1
+    return 0 if apply(root, camera, enabled, disabled_file, keep=keep) else 1
 
 
 CAMERA_HELP = (
@@ -178,6 +225,12 @@ def build_parser() -> argparse.ArgumentParser:
         ("disable", "turn a camera off"),
     ):
         command = commands.add_parser(name, help=text)
+        if name == "disable":
+            command.add_argument(
+                "--persist",
+                action="store_true",
+                help="also keep it off after a reboot or replug",
+            )
         choice = command.add_mutually_exclusive_group(required=True)
         choice.add_argument(
             "camera",
@@ -208,14 +261,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def set_all(root: Path, *, enabled: bool) -> int:
+def set_all(
+    root: Path, disabled_file: Path, *, enabled: bool, keep: bool = False
+) -> int:
     cameras = discover(root)
 
     if not cameras:
         print(NO_CAMERAS)
         return 0
 
-    results = [apply(root, camera, enabled) for camera in cameras]
+    results = [
+        apply(root, camera, enabled, disabled_file, keep=keep) for camera in cameras
+    ]
     return 0 if all(results) else 1
 
 
@@ -225,7 +282,7 @@ def restore(root: Path, disabled_file: Path, camera_id: str) -> int:
 
     for camera in discover(root):
         if camera.id == camera_id:
-            return 0 if apply(root, camera, False) else 1
+            return 0 if apply(root, camera, False, disabled_file) else 1
 
     return 0
 
@@ -233,8 +290,10 @@ def restore(root: Path, disabled_file: Path, camera_id: str) -> int:
 def main(
     argv: list[str] | None = None,
     root: Path = Path("/sys"),
-    disabled_file: Path = persist.DEFAULT_PATH,
+    disabled_file: Path | None = None,
 ) -> int:
+    if disabled_file is None:
+        disabled_file = persist.DEFAULT_PATH
     try:
         args, extra = build_parser().parse_known_args(argv)
     except SystemExit as error:
@@ -257,8 +316,12 @@ def main(
     if args.command == "restore":
         return restore(root, disabled_file, args.camera)
 
+    keep = getattr(args, "persist", False)
+
     if getattr(args, "all", False):
-        return set_all(root, enabled=args.command == "enable")
+        return set_all(root, disabled_file, enabled=args.command == "enable", keep=keep)
 
     wanted = {"enable": True, "disable": False, "toggle": None}
-    return set_camera(root, args.camera, enabled=wanted[args.command])
+    return set_camera(
+        root, args.camera, disabled_file, enabled=wanted[args.command], keep=keep
+    )
