@@ -33,7 +33,7 @@ cd campermit/packaging/arch
 makepkg -si
 ```
 
-After that, `sudo campermit disable ID` works as it is, where ID comes from `campermit list`.
+After that, `campermit disable ID` works as it is, where ID comes from `campermit list`. It asks for your password, see [Passwords](#passwords).
 
 ### Other distributions
 
@@ -64,6 +64,8 @@ sed "s|/usr/bin/campermit|$PWD/.venv/bin/campermit|" packaging/udev/99-campermit
 sudo udevadm control --reload
 ```
 
+The password dialog described under [Passwords](#passwords) comes with the Arch package. On other distributions, use `sudo`.
+
 ## Usage
 
 ```
@@ -75,6 +77,7 @@ campermit disable CAMERA --persist   turn it off and keep it off after a reboot
 campermit toggle CAMERA              flip it
 campermit enable --all               do it for every camera
 campermit disable --all
+campermit disable --all --persist
 ```
 
 `CAMERA` can be any of these:
@@ -109,6 +112,32 @@ This saves the camera's ID in `/etc/campermit/disabled`. A udev rule reads that 
 
 The rule runs `campermit restore ID`. You don't need to run it yourself.
 
+### Passwords
+
+Changing a camera needs root, and there are two ways to give it.
+
+`sudo campermit disable 3-6` asks for your password in the terminal, like any `sudo` command. The examples in this README use `sudo` because it works everywhere.
+
+Without `sudo`, campermit asks polkit instead. On a desktop that is a password dialog. If no polkit agent is running, it falls back to a prompt in the terminal. At the machine it wants your own password. In a session that isn't at the machine, such as over ssh, it wants an administrator's. A command with nothing to do, like disabling a camera that is already off, doesn't ask at all.
+
+This only works for the installed `/usr/bin/campermit`, which is what the Arch package gives you. A copy in a virtual environment or from pipx tells you to use `sudo` instead, because letting root run a file you can edit would not be safe.
+
+A wrong password or a dismissed dialog counts as a failed login. On systems that use `pam_faillock`, as Arch does, a few of those in a row lock password prompts for about ten minutes, `sudo` included. That is true of every password dialog on the system, not only this one.
+
+#### Changing the defaults
+
+The package installs two polkit actions, `org.campermit.disable` and `org.campermit.enable`, and both ask for a password. To change that, add a rules file. To let `disable` run without a password when you are at the machine, create `/etc/polkit-1/rules.d/50-campermit.rules`:
+
+```js
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.campermit.disable" && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
+```
+
+polkit picks the file up on its own. Use `org.campermit.enable` instead to do the same for `enable`. Delete the file to go back to asking.
+
 ### For scripts
 
 `campermit list --json` prints the cameras as JSON:
@@ -134,7 +163,8 @@ The rule runs `campermit restore ID`. You don't need to run it yourself.
 renamed or removed.
 
 Exit codes: `0` when the camera ended up as asked, `1` when something failed,
-`2` for a usage mistake.
+`2` for a usage mistake. `126` means the password dialog was dismissed, and `127`
+means polkit couldn't ask at all.
 
 ## What to expect
 
@@ -142,7 +172,10 @@ Exit codes: `0` when the camera ended up as asked, `1` when something failed,
 - Without `--persist`, a disabled camera comes back on after a reboot. With it, the
   camera is turned off again as soon as its driver attaches, so it is on briefly at
   boot.
-- Replugging an external camera has not been tested.
+- `--persist` remembers a camera by its ID, which is its USB port. Move the camera
+  to another port and it is no longer kept off. Plug a different camera into that
+  port and it is turned off. Neither has been tried with real hardware. To forget
+  a camera that is not plugged in, delete its line from `/etc/campermit/disabled`.
 - Uninstalling campermit does not change any camera. To get one back right away,
   run `sudo campermit enable --all` before removing it, or reboot. If
   campermit is already gone, this does the same by hand (use your camera's ID):
@@ -166,6 +199,7 @@ python -m venv .venv
 .venv/bin/pip install -e . --group dev
 .venv/bin/pytest
 .venv/bin/ruff check
+.venv/bin/ruff format --check
 ```
 
 `--group` needs pip 25.1 or newer.

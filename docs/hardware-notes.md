@@ -55,6 +55,19 @@ control interface is the one with class `0e` and subclass `01`.
 - With the rule installed, `campermit enable` left the camera on, because it
   takes the camera off the list before binding it.
 
+## polkit
+
+- `pkexec` matches an action on the program path and the first argument only.
+  Anything after that goes through unchecked, so `disable 3-6 --anything` is
+  still the `disable` action.
+- A dismissed dialog exits with 126 and leaves the camera as it was.
+- On this machine a dismissed dialog is recorded in `faillock` as one failed
+  attempt (source `polkit-1`).
+- A rules file in `/etc/polkit-1/rules.d/` took effect without restarting
+  polkit, and removing it brought the prompts back.
+- Run without `sudo`, `toggle` goes through the specific disable or enable
+  action, not polkit's generic one.
+
 ## Errors
 
 | Write | State | Error |
@@ -72,3 +85,8 @@ camera is already in the state we wanted.
 - Two commands running at once.
 - External USB cameras, or laptops with more than one camera.
 - Which events fire when `uvcvideo` is loaded before udev starts.
+- The password prompt with no polkit agent running. pkexec should fall back to a
+  prompt in the terminal.
+- A session that is not at the machine, such as over ssh, where the policy asks
+  for an administrator's password.
+- NixOS, where `/usr/bin/campermit` does not exist, so the policy path would not match.
