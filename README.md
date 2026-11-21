@@ -67,12 +67,13 @@ sudo udevadm control --reload
 ## Usage
 
 ```
-campermit list                 show the cameras and whether they are on
-campermit status CAMERA        print enabled, disabled, or which driver has it
-campermit enable CAMERA        turn a camera on
-campermit disable CAMERA       turn a camera off
-campermit toggle CAMERA        flip it
-campermit enable --all         do it for every camera
+campermit list                       show the cameras and whether they are on
+campermit status CAMERA              print enabled, disabled, or which driver has it
+campermit enable CAMERA              turn a camera on
+campermit disable CAMERA             turn a camera off
+campermit disable CAMERA --persist   turn it off and keep it off after a reboot
+campermit toggle CAMERA              flip it
+campermit enable --all               do it for every camera
 campermit disable --all
 ```
 

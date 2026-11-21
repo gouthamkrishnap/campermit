@@ -222,7 +222,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     for name, text in (
         ("enable", "turn a camera on"),
-        ("disable", "turn a camera off"),
+        ("disable", "turn a camera off (add --persist to keep it off after a reboot)"),
     ):
         command = commands.add_parser(name, help=text)
         if name == "disable":
@@ -253,7 +253,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     restore_command = commands.add_parser(
         "restore",
-        help="turn a camera off again if it is on the kept-off list "
+        help="turn a camera off again if it was disabled with --persist "
         "(run by the udev rule, you rarely need it)",
     )
     restore_command.add_argument("camera", help="the exact camera ID, such as 3-6:1.0")
