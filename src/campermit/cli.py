@@ -1,10 +1,12 @@
 import argparse
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 from campermit import __version__, persist, uvc
 from campermit.discovery import Camera, discover, find_camera
+from campermit.elevate import ask_for_root
 from campermit.errors import CampermitError
 
 NO_CAMERAS = "No USB cameras found."
@@ -378,3 +380,7 @@ def main(
         keep=keep,
         elevate=elevate,
     )
+
+
+def run() -> int:
+    return main(elevate=None if os.geteuid() == 0 else ask_for_root)

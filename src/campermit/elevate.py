@@ -53,3 +53,36 @@ def run_elevated(cmd: list[str], run: Callable = subprocess.run) -> int:
         )
 
     return code
+
+
+def ask_for_root(
+    args: list[str],
+    *,
+    running: Path | None = None,
+    installed: Path = INSTALLED,
+    candidates=PKEXEC_PATHS,
+    trusted_uid: int = 0,
+    run: Callable = subprocess.run,
+) -> int:
+    if running is None:
+        running = Path(sys.argv[0])
+
+    if not safe_to_elevate(running, installed, trusted_uid=trusted_uid):
+        print(
+            f"campermit: this needs root. The password prompt only works for "
+            f"the installed {installed}, so run this copy with sudo.",
+            file=sys.stderr,
+        )
+        return 1
+
+    pkexec = find_pkexec(candidates)
+
+    if pkexec is None:
+        print(
+            "campermit: this needs root, and pkexec was not found. "
+            "Install polkit or run it with sudo.",
+            file=sys.stderr,
+        )
+        return 1
+
+    return run_elevated(command(pkexec, args, installed), run)

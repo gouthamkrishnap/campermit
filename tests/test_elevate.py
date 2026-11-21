@@ -118,3 +118,79 @@ def test_no_authentication_agent_suggests_sudo(capsys):
 
     assert code == 127
     assert "sudo" in capsys.readouterr().err
+
+
+def test_ask_for_root_runs_pkexec_with_the_installed_copy(tmp_path):
+    installed = make_installed(tmp_path)
+    pkexec = tmp_path / "pkexec"
+    pkexec.write_text("")
+    seen = []
+
+    code = elevate.ask_for_root(
+        ["disable", "3-6:1.0"],
+        running=installed,
+        installed=installed,
+        candidates=[pkexec],
+        trusted_uid=os.getuid(),
+        run=fake_run(0, seen),
+    )
+
+    assert code == 0
+    assert seen == [[str(pkexec), str(installed), "disable", "3-6:1.0"]]
+
+
+def test_ask_for_root_passes_on_what_pkexec_returns(tmp_path):
+    installed = make_installed(tmp_path)
+    pkexec = tmp_path / "pkexec"
+    pkexec.write_text("")
+
+    code = elevate.ask_for_root(
+        ["enable", "3-6:1.0"],
+        running=installed,
+        installed=installed,
+        candidates=[pkexec],
+        trusted_uid=os.getuid(),
+        run=fake_run(126, []),
+    )
+
+    assert code == 126
+
+
+def test_ask_for_root_refuses_a_copy_that_is_not_the_installed_one(tmp_path, capsys):
+    installed = make_installed(tmp_path)
+    other = tmp_path / "other"
+    other.write_text("#!/bin/sh\n")
+    seen = []
+
+    code = elevate.ask_for_root(
+        ["disable", "3-6:1.0"],
+        running=other,
+        installed=installed,
+        candidates=[],
+        trusted_uid=os.getuid(),
+        run=fake_run(0, seen),
+    )
+
+    assert code == 1
+    assert seen == []
+    assert "sudo" in capsys.readouterr().err
+
+
+def test_ask_for_root_says_so_when_pkexec_is_missing(tmp_path, capsys):
+    installed = make_installed(tmp_path)
+    seen = []
+
+    code = elevate.ask_for_root(
+        ["disable", "3-6:1.0"],
+        running=installed,
+        installed=installed,
+        candidates=[tmp_path / "nope"],
+        trusted_uid=os.getuid(),
+        run=fake_run(0, seen),
+    )
+
+    error = capsys.readouterr().err
+    assert code == 1
+    assert seen == []
+    assert "pkexec" in error
+    assert "sudo" in error

@@ -1,8 +1,9 @@
 import pytest
 from fakesys import add_device, add_interface, unbind
 
-from campermit import persist, uvc
+from campermit import cli, persist, uvc
 from campermit.cli import main
+from campermit.elevate import ask_for_root
 
 
 @pytest.fixture
@@ -237,3 +238,21 @@ def test_without_an_elevator_the_camera_is_changed_directly(sysfs, tmp_path):
 
     assert exit_code == 0
     assert (sysfs / "bus/usb/drivers/uvcvideo/unbind").read_text() == "3-6:1.0\n"
+
+
+def test_a_normal_user_gets_the_elevator(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(cli, "main", lambda **kwargs: seen.update(kwargs) or 0)
+
+    assert cli.run() == 0
+    assert seen["elevate"] is ask_for_root
+
+
+def test_root_gets_no_elevator(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(cli, "main", lambda **kwargs: seen.update(kwargs) or 0)
+
+    assert cli.run() == 0
+    assert seen["elevate"] is None

@@ -33,7 +33,7 @@ Source = "https://github.com/gouthamkrishnap/campermit"
 Issues = "https://github.com/gouthamkrishnap/campermit/issues"
 
 [project.scripts]
-campermit = "campermit.cli:main"
+campermit = "campermit.cli:run"
 
 [tool.hatch.version]
 path = "src/campermit/__init__.py"
