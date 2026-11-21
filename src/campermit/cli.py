@@ -1,5 +1,6 @@
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from campermit import __version__, persist, uvc
@@ -168,6 +169,32 @@ def pick_camera(root: Path, name: str) -> Camera | None:
     return matches[0]
 
 
+def needs_root(camera: Camera, enabled: bool, disabled_file: Path, keep: bool) -> bool:
+    # A camera used by another driver is refused without touching anything.
+    if camera.driver not in (None, uvc.DRIVER):
+        return False
+
+    if keep or (camera.driver == uvc.DRIVER) != enabled:
+        return True
+
+    # Already as wanted, but enabling still has to clear it from the list.
+    if enabled:
+        try:
+            return camera.id in persist.load(disabled_file)
+        except OSError:
+            return True
+
+    return False
+
+
+def root_arguments(enabled: bool, target: str, keep: bool) -> list[str]:
+    return [
+        "enable" if enabled else "disable",
+        target,
+        *(["--persist"] if keep else []),
+    ]
+
+
 def set_camera(
     root: Path,
     camera_id: str,
@@ -175,6 +202,7 @@ def set_camera(
     *,
     enabled: bool | None,
     keep: bool = False,
+    elevate: Callable[[list[str]], int] | None = None,
 ) -> int:
     camera = pick_camera(root, camera_id)
 
@@ -183,6 +211,9 @@ def set_camera(
 
     if enabled is None:
         enabled = camera.driver != uvc.DRIVER
+
+    if elevate is not None and needs_root(camera, enabled, disabled_file, keep):
+        return elevate(root_arguments(enabled, camera.id, keep))
 
     return 0 if apply(root, camera, enabled, disabled_file, keep=keep) else 1
 
@@ -262,13 +293,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def set_all(
-    root: Path, disabled_file: Path, *, enabled: bool, keep: bool = False
+    root: Path,
+    disabled_file: Path,
+    *,
+    enabled: bool,
+    keep: bool = False,
+    elevate: Callable[[list[str]], int] | None = None,
 ) -> int:
     cameras = discover(root)
 
     if not cameras:
         print(NO_CAMERAS)
         return 0
+
+    if elevate is not None and any(
+        needs_root(camera, enabled, disabled_file, keep) for camera in cameras
+    ):
+        return elevate(root_arguments(enabled, "--all", keep))
 
     results = [
         apply(root, camera, enabled, disabled_file, keep=keep) for camera in cameras
@@ -291,6 +332,7 @@ def main(
     argv: list[str] | None = None,
     root: Path = Path("/sys"),
     disabled_file: Path | None = None,
+    elevate: Callable[[list[str]], int] | None = None,
 ) -> int:
     if disabled_file is None:
         disabled_file = persist.DEFAULT_PATH
@@ -319,9 +361,20 @@ def main(
     keep = getattr(args, "persist", False)
 
     if getattr(args, "all", False):
-        return set_all(root, disabled_file, enabled=args.command == "enable", keep=keep)
+        return set_all(
+            root,
+            disabled_file,
+            enabled=args.command == "enable",
+            keep=keep,
+            elevate=elevate,
+        )
 
     wanted = {"enable": True, "disable": False, "toggle": None}
     return set_camera(
-        root, args.camera, disabled_file, enabled=wanted[args.command], keep=keep
+        root,
+        args.camera,
+        disabled_file,
+        enabled=wanted[args.command],
+        keep=keep,
+        elevate=elevate,
     )
