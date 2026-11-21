@@ -1,14 +1,15 @@
 pkgname=campermit
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="Enable and disable USB webcams on Linux from the command line"
 arch=('any')
 url="https://github.com/gouthamkrishnap/campermit"
 license=('MIT')
 depends=('python')
+optdepends=('polkit: ask for a password without sudo')
 makedepends=('python-build' 'python-installer' 'python-hatchling')
 source=("$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha256sums=('e6d7346fd528dfa88aad3b17006cab899e3207718338993b7a7ca520f3a537f7')
+sha256sums=('ea27a2f97f90241545bbcecd135daf390559913bbd297bdae94566c222c2df0e')
 
 build() {
   cd "$pkgname-$pkgver"
@@ -21,4 +22,6 @@ package() {
   install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
   install -Dm644 packaging/udev/99-campermit.rules \
     "$pkgdir/usr/lib/udev/rules.d/99-campermit.rules"
+  install -Dm644 packaging/polkit/org.campermit.policy \
+    "$pkgdir/usr/share/polkit-1/actions/org.campermit.policy"
 }
