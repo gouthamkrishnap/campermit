@@ -26,6 +26,12 @@ def test_help_lists_the_commands(capsys):
         assert command in output
 
 
+def test_help_says_status_can_name_a_driver(capsys):
+    main(["--help"])
+
+    assert "which driver" in capsys.readouterr().out
+
+
 def test_no_command_is_a_usage_error(capsys):
     exit_code = main([])
 
@@ -627,6 +633,22 @@ def test_extra_words_ask_for_quotes(sysfs, capsys):
 
 def test_extra_words_change_nothing(sysfs, writes):
     main(["disable", "HP", "Wide"], root=sysfs)
+
+    assert writes == []
+
+
+def test_an_option_the_command_does_not_take_is_named(sysfs, capsys):
+    exit_code = main(["enable", "3-6", "--persist"], root=sysfs)
+
+    error = capsys.readouterr().err
+    assert exit_code == 2
+    assert '"--persist"' in error
+    assert "enable" in error
+    assert "quotes" not in error
+
+
+def test_an_unknown_option_changes_nothing(sysfs, writes):
+    main(["enable", "3-6", "--persist"], root=sysfs)
 
     assert writes == []
 

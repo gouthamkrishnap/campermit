@@ -249,7 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     status = commands.add_parser(
-        "status", help="print whether a camera is enabled or disabled"
+        "status", help="print enabled, disabled, or which driver has it"
     )
     status.add_argument("camera", help=CAMERA_HELP)
 
@@ -344,6 +344,16 @@ def main(
         return int(error.code or 0)
 
     if extra:
+        options = [word for word in extra if word.startswith("-")]
+
+        if options:
+            print(
+                f'campermit: {args.command} does not take "{options[0]}". '
+                f"Try campermit {args.command} --help.",
+                file=sys.stderr,
+            )
+            return 2
+
         words = " ".join(extra)
         print(
             f'campermit: unexpected "{words}". A camera name with spaces needs quotes.',
