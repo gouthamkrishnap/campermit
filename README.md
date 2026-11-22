@@ -87,7 +87,7 @@ campermit disable --all --persist
 | `3-6:1.0` | the exact camera ID, as shown by `list` |
 | `3-6` | a USB device, if it has only one camera |
 | `0408:5482` | a vendor and product ID |
-| `wide vision` | part of the camera's name, at least 3 characters, any letter case |
+| `"wide vision"` | part of the camera's name, at least 3 characters, any letter case |
 
 A name with several words needs quotes: `campermit disable "wide vision"`. One word is usually enough: `campermit disable wide`.
 
@@ -118,7 +118,7 @@ Changing a camera needs root, and there are two ways to give it.
 
 `sudo campermit disable 3-6` asks for your password in the terminal, like any `sudo` command. The examples in this README use `sudo` because it works everywhere.
 
-Without `sudo`, campermit asks polkit instead. On a desktop that is a password dialog. If no polkit agent is running, it falls back to a prompt in the terminal. At the machine it wants your own password. In a session that isn't at the machine, such as over ssh, it wants an administrator's. A command with nothing to do, like disabling a camera that is already off, doesn't ask at all.
+Without `sudo`, campermit asks polkit instead. On a desktop that is a password dialog. If no polkit agent is running, pkexec may ask in the terminal instead, or fail, and then campermit suggests `sudo`. At the machine it wants your own password. In a session that isn't at the machine, such as over ssh, it wants an administrator's. A command with nothing to do, like disabling a camera that is already off, doesn't ask at all.
 
 This only works for the installed `/usr/bin/campermit`, which is what the Arch package gives you. A copy in a virtual environment or from pipx tells you to use `sudo` instead, because letting root run a file you can edit would not be safe.
 
