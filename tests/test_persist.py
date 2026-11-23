@@ -17,6 +17,63 @@ def test_load_skips_blank_lines_and_comments(tmp_path):
     assert persist.load(path) == ["3-6:1.0", "1-2:1.0"]
 
 
+def test_entries_read_the_id_the_model_and_the_controller(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    assert persist.entries(path) == [
+        persist.Entry("3-6:1.0", "0408:5482", "0000:00:14.0")
+    ]
+
+
+def test_an_old_line_with_only_the_id_is_still_read(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0\n")
+
+    assert persist.entries(path) == [persist.Entry("3-6:1.0", None, None)]
+
+
+def test_entries_ignore_extra_spaces_extra_fields_and_comments(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("# mine\n\n  3-6:1.0\t0408:5482   0000:00:14.0  SN123\n")
+
+    assert persist.entries(path) == [
+        persist.Entry("3-6:1.0", "0408:5482", "0000:00:14.0")
+    ]
+
+
+def test_a_comment_after_the_fields_is_ignored(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0 0408:5482 0000:00:14.0  # laptop camera\n")
+
+    assert persist.entries(path) == [
+        persist.Entry("3-6:1.0", "0408:5482", "0000:00:14.0")
+    ]
+
+
+def test_load_gives_the_ids_of_new_and_old_lines(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0 0408:5482 0000:00:14.0\n1-2:1.0\n")
+
+    assert persist.load(path) == ["3-6:1.0", "1-2:1.0"]
+
+
+def test_adding_a_camera_that_has_a_full_line_changes_nothing(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    assert persist.add(path, "3-6:1.0") is False
+    assert path.read_text() == "3-6:1.0 0408:5482 0000:00:14.0\n"
+
+
+def test_remove_finds_a_full_line_by_its_id(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("# kept\n3-6:1.0 0408:5482 0000:00:14.0\n1-2:1.0\n")
+
+    assert persist.remove(path, "3-6:1.0") is True
+    assert path.read_text() == "# kept\n1-2:1.0\n"
+
+
 def test_add_creates_the_file_and_its_folder(tmp_path):
     path = tmp_path / "campermit" / "disabled"
 

@@ -4,8 +4,15 @@ import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import NamedTuple
 
 DEFAULT_PATH = Path("/etc/campermit/disabled")
+
+
+class Entry(NamedTuple):
+    id: str
+    usb_id: str | None = None
+    controller: str | None = None
 
 
 @contextmanager
@@ -25,9 +32,22 @@ def lines(path: Path) -> list[str]:
         return []
 
 
+def parse(line: str) -> Entry | None:
+    fields = line.split("#")[0].split()
+    return Entry(*fields[:3]) if fields else None
+
+
+def entries(path: Path) -> list[Entry]:
+    return [entry for line in lines(path) if (entry := parse(line))]
+
+
 def load(path: Path) -> list[str]:
-    ids = (line.strip() for line in lines(path))
-    return [text for text in ids if text and not text.startswith("#")]
+    return [entry.id for entry in entries(path)]
+
+
+def is_for(line: str, camera_id: str) -> bool:
+    entry = parse(line)
+    return entry is not None and entry.id == camera_id
 
 
 def write(path: Path, rows: list[str]) -> None:
@@ -59,5 +79,5 @@ def remove(path: Path, camera_id: str) -> bool:
     with locked(path.parent):
         if camera_id not in load(path):
             return False
-        write(path, [line for line in lines(path) if line.strip() != camera_id])
+        write(path, [line for line in lines(path) if not is_for(line, camera_id)])
         return True
