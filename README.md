@@ -3,8 +3,9 @@
 Enable and disable USB webcams on Linux from the command line.
 
 campermit turns a camera off by unbinding it from the `uvcvideo` driver, which is
-what you would do by hand through `/sys`. The camera stays plugged in, but nothing
-can open it until you turn it back on. It only works with USB (UVC) cameras.
+what you would do by hand through `/sys`. The camera stays connected to the
+system, but programs can no longer open it until you turn it back on. It only
+works with USB (UVC) cameras.
 
 It is software. A physical shutter or a hardware kill switch is still the only
 way to be sure.
@@ -184,8 +185,23 @@ means polkit couldn't ask at all.
   echo '3-6:1.0' | sudo tee /sys/bus/usb/drivers/uvcvideo/bind
   ```
 
+## Why not unload or blacklist the driver?
+
+`sudo modprobe -r uvcvideo` also turns cameras off, but it affects every UVC
+camera at once, capture cards included, and it usually refuses while a program is
+using one. Blacklisting `uvcvideo` is all-or-nothing as well, and only takes
+effect at the next boot. campermit turns off just the camera you name, works while
+a program is using it, and turns it back on without loading or unloading
+anything. If your laptop has a single camera you never use, blacklisting is
+simpler and may be all you need.
+
 ## Limits
 
+- Only the camera's video is turned off. If the camera has a microphone, that is a
+  separate part of the USB device, and campermit does not touch it.
+- It stops ordinary programs from using the camera. Anything running as root can
+  turn the camera back on, so it is no protection against malware that already
+  has root.
 - USB cameras only. Many newer laptops have a built-in camera that is not USB
   (MIPI). campermit can't see or control those, and `list` says so.
 - It has only been tested on one laptop with one camera: an HP Wide Vision HD
