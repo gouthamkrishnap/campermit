@@ -1,5 +1,5 @@
 import pytest
-from fakesys import add_device, add_interface, unbind
+from fakesys import add_device, add_interface, unbind, write
 
 from campermit.discovery import discover, find_camera
 
@@ -14,6 +14,40 @@ def test_finds_the_laptop_camera(sysfs):
     assert camera.usb_id == "0408:5482"
     assert camera.driver == "uvcvideo"
     assert camera.nodes == ["/dev/video0", "/dev/video1"]
+
+
+def test_camera_knows_which_controller_it_is_on(sysfs):
+    [camera] = discover(sysfs)
+
+    assert camera.controller == "0000:00:14.0"
+
+
+def test_cameras_on_different_controllers_are_told_apart(sysfs):
+    add_device(
+        sysfs,
+        "4-2",
+        "046d",
+        "0825",
+        "Logitech",
+        "Webcam C270",
+        controller="0000:00:0d.0",
+    )
+    add_interface(sysfs, "4-2:1.0", "0e", "01", "uvcvideo")
+
+    cameras = {camera.id: camera for camera in discover(sysfs)}
+
+    assert cameras["3-6:1.0"].controller == "0000:00:14.0"
+    assert cameras["4-2:1.0"].controller == "0000:00:0d.0"
+
+
+def test_controller_is_unknown_when_the_device_is_not_under_one(sysfs):
+    for name, text in (("idVendor", "046d"), ("idProduct", "0825")):
+        write(sysfs / "bus/usb/devices/5-1" / name, text)
+    add_interface(sysfs, "5-1:1.0", "0e", "01", "uvcvideo")
+
+    cameras = {camera.id: camera for camera in discover(sysfs)}
+
+    assert cameras["5-1:1.0"].controller is None
 
 
 def test_disabled_camera_is_still_found(sysfs):

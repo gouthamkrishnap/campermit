@@ -1,4 +1,5 @@
 import re
+from itertools import pairwise
 from pathlib import Path
 from typing import NamedTuple
 
@@ -12,6 +13,7 @@ class Camera(NamedTuple):
     usb_id: str
     driver: str | None
     nodes: list[str]
+    controller: str | None = None
 
 
 def read(path: Path) -> str | None:
@@ -23,6 +25,13 @@ def read(path: Path) -> str | None:
 
 def numeric_order(name: str) -> list[int]:
     return [int(number) for number in re.findall(r"\d+", name)]
+
+
+def controller_of(device: Path) -> str | None:
+    for before, part in pairwise(device.resolve().parts):
+        if re.fullmatch(r"usb\d+", part):
+            return before
+    return None
 
 
 def discover(root: Path) -> list[Camera]:
@@ -56,6 +65,7 @@ def discover(root: Path) -> list[Camera]:
                 usb_id=usb_id,
                 driver=link.resolve().name if link.is_symlink() else None,
                 nodes=[f"/dev/{node.name}" for node in nodes],
+                controller=controller_of(device),
             )
         )
 
