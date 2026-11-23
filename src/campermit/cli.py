@@ -320,12 +320,22 @@ def set_all(
 
 
 def restore(root: Path, disabled_file: Path, camera_id: str) -> int:
-    if camera_id not in persist.load(disabled_file):
+    saved = persist.entries(disabled_file)
+    camera = next((found for found in discover(root) if found.id == camera_id), None)
+
+    if camera is None:
         return 0
 
-    for camera in discover(root):
-        if camera.id == camera_id:
-            return 0 if apply(root, camera, False, disabled_file) else 1
+    if any(entry.matches(camera) for entry in saved):
+        return 0 if apply(root, camera, False, disabled_file) else 1
+
+    for entry in saved:
+        if entry.is_at(camera):
+            print(
+                f"campermit: {camera.id} was saved as {entry.usb_id}, but the "
+                f"camera there is now {camera.usb_id}, so it was left on",
+                file=sys.stderr,
+            )
 
     return 0
 

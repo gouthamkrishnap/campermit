@@ -6,13 +6,28 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import NamedTuple
 
+from campermit.discovery import Camera
+
 DEFAULT_PATH = Path("/etc/campermit/disabled")
+
+
+def port_of(camera_id: str) -> str:
+    return camera_id.partition("-")[2]
 
 
 class Entry(NamedTuple):
     id: str
     usb_id: str | None = None
     controller: str | None = None
+
+    def is_at(self, camera: Camera) -> bool:
+        if self.controller is None:
+            return self.id == camera.id
+        same_port = port_of(self.id) == port_of(camera.id)
+        return same_port and self.controller == camera.controller
+
+    def matches(self, camera: Camera) -> bool:
+        return self.is_at(camera) and self.usb_id in (None, camera.usb_id)
 
 
 @contextmanager

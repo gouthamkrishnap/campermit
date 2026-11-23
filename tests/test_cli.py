@@ -723,6 +723,64 @@ def test_restore_keeps_the_camera_on_the_list(sysfs, tmp_path):
     assert persist.load(listing) == ["3-6:1.0"]
 
 
+def test_restore_disables_a_camera_that_matches_its_full_line(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / UNBIND).read_text() == "3-6:1.0\n"
+
+
+def test_restore_finds_the_camera_when_its_bus_number_changed(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("2-6:1.0 0408:5482 0000:00:14.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / UNBIND).read_text() == "3-6:1.0\n"
+
+
+def test_restore_leaves_a_different_camera_in_the_saved_place_on(
+    sysfs, tmp_path, capsys
+):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 1234:abcd 0000:00:14.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / UNBIND).read_text() == ""
+    error = capsys.readouterr().err
+    assert "1234:abcd" in error
+    assert "0408:5482" in error
+    assert "left on" in error
+
+
+def test_restore_ignores_the_same_port_on_another_controller(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:0d.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / UNBIND).read_text() == ""
+    assert capsys.readouterr().err == ""
+
+
+def test_restore_ignores_the_same_model_in_another_port(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-5:1.0 0408:5482 0000:00:14.0\n")
+
+    exit_code = main(["restore", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert (sysfs / UNBIND).read_text() == ""
+    assert capsys.readouterr().err == ""
+
+
 def test_disable_persist_unbinds_and_adds_to_the_list(sysfs, tmp_path):
     listing = tmp_path / "disabled"
 
