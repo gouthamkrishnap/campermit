@@ -1,4 +1,5 @@
 import os
+import threading
 
 import pytest
 
@@ -118,3 +119,46 @@ def test_the_list_stays_readable_by_everyone(tmp_path):
     persist.add(path, "3-6:1.0")
 
     assert path.stat().st_mode & 0o777 == 0o644
+
+
+def test_two_adds_at_once_keep_both_cameras(tmp_path, monkeypatch):
+    path = tmp_path / "disabled"
+    real_write = persist.write
+    rival = threading.Thread(target=persist.add, args=(path, "1-2:1.0"))
+    started = []
+
+    def write_after_a_rival_starts(target, rows):
+        if not started:
+            started.append(True)
+            rival.start()
+            rival.join(timeout=0.2)
+        real_write(target, rows)
+
+    monkeypatch.setattr(persist, "write", write_after_a_rival_starts)
+
+    persist.add(path, "3-6:1.0")
+    rival.join()
+
+    assert sorted(persist.load(path)) == ["1-2:1.0", "3-6:1.0"]
+
+
+def test_two_removes_at_once_keep_the_other_cameras(tmp_path, monkeypatch):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0\n1-2:1.0\n2-1:1.0\n")
+    real_write = persist.write
+    rival = threading.Thread(target=persist.remove, args=(path, "1-2:1.0"))
+    started = []
+
+    def write_after_a_rival_starts(target, rows):
+        if not started:
+            started.append(True)
+            rival.start()
+            rival.join(timeout=0.2)
+        real_write(target, rows)
+
+    monkeypatch.setattr(persist, "write", write_after_a_rival_starts)
+
+    persist.remove(path, "3-6:1.0")
+    rival.join()
+
+    assert persist.load(path) == ["2-1:1.0"]
