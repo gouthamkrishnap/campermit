@@ -21,7 +21,7 @@ def read(path: Path) -> str | None:
         return None
 
 
-def port_order(name: str) -> list[int]:
+def numeric_order(name: str) -> list[int]:
     return [int(number) for number in re.findall(r"\d+", name)]
 
 
@@ -30,7 +30,7 @@ def discover(root: Path) -> list[Camera]:
     cameras = []
 
     for interface in sorted(
-        devices.glob("*:*"), key=lambda path: port_order(path.name)
+        devices.glob("*:*"), key=lambda path: numeric_order(path.name)
     ):
         if read(interface / "bInterfaceClass") != UVC_CLASS:
             continue
@@ -44,7 +44,10 @@ def discover(root: Path) -> list[Camera]:
             continue
         usb_id = f"{vendor_id}:{product_id}"
         link = interface / "driver"
-        nodes = sorted((interface / "video4linux").glob("video*"))
+        nodes = sorted(
+            (interface / "video4linux").glob("video*"),
+            key=lambda path: numeric_order(path.name),
+        )
 
         cameras.append(
             Camera(

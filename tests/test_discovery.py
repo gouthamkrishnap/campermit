@@ -149,3 +149,12 @@ def test_two_letters_are_too_short_to_match_a_name(sysfs):
 
 def test_spaces_around_a_name_do_not_count_as_letters(sysfs):
     assert find_camera(discover(sysfs), "hp ") == []
+
+
+def test_nodes_are_sorted_by_number(sysfs):
+    add_device(sysfs, "1-2", "046d", "0825", "Logitech", "Webcam C270")
+    add_interface(sysfs, "1-2:1.0", "0e", "01", "uvcvideo", nodes=("video10", "video2"))
+
+    cameras = {camera.id: camera for camera in discover(sysfs)}
+
+    assert cameras["1-2:1.0"].nodes == ["/dev/video2", "/dev/video10"]
