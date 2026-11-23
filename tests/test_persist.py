@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from campermit import persist
@@ -75,3 +77,44 @@ def test_a_failed_write_keeps_the_old_file(tmp_path, monkeypatch):
         persist.add(path, "1-2:1.0")
 
     assert path.read_text() == "3-6:1.0\n"
+
+
+def test_a_failed_write_leaves_no_temp_file_behind(tmp_path, monkeypatch):
+    path = tmp_path / "disabled"
+    persist.add(path, "3-6:1.0")
+
+    def fail(source, target):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(persist.os, "replace", fail)
+
+    with pytest.raises(OSError):
+        persist.add(path, "1-2:1.0")
+
+    assert [item.name for item in tmp_path.iterdir()] == ["disabled"]
+
+
+def test_two_writes_at_once_do_not_share_a_temp_file(tmp_path, monkeypatch):
+    path = tmp_path / "disabled"
+    real_replace = os.replace
+    rival_has_run = []
+
+    def replace_after_a_rival_write(source, target):
+        if not rival_has_run:
+            rival_has_run.append(True)
+            persist.write(path, ["1-2:1.0"])
+        real_replace(source, target)
+
+    monkeypatch.setattr(persist.os, "replace", replace_after_a_rival_write)
+
+    persist.write(path, ["3-6:1.0"])
+
+    assert persist.load(path) == ["3-6:1.0"]
+
+
+def test_the_list_stays_readable_by_everyone(tmp_path):
+    path = tmp_path / "disabled"
+
+    persist.add(path, "3-6:1.0")
+
+    assert path.stat().st_mode & 0o777 == 0o644

@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 
 DEFAULT_PATH = Path("/etc/campermit/disabled")
@@ -17,12 +18,17 @@ def load(path: Path) -> list[str]:
 
 
 def write(path: Path, rows: list[str]) -> None:
-    temp = path.with_name(path.name + ".tmp")
-    with open(temp, "w") as file:
-        file.write("".join(row + "\n" for row in rows))
-        file.flush()
-        os.fsync(file.fileno())
-    os.replace(temp, path)
+    descriptor, temp = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".")
+    try:
+        with os.fdopen(descriptor, "w") as file:
+            os.fchmod(file.fileno(), 0o644)
+            file.write("".join(row + "\n" for row in rows))
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temp, path)
+    except BaseException:
+        os.unlink(temp)
+        raise
 
 
 def add(path: Path, camera_id: str) -> bool:
