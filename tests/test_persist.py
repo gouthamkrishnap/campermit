@@ -4,6 +4,11 @@ import threading
 import pytest
 
 from campermit import persist
+from campermit.discovery import Camera
+
+
+def camera(camera_id="3-6:1.0", usb_id="0408:5482", controller="0000:00:14.0"):
+    return Camera(camera_id, "Camera", usb_id, "uvcvideo", [], controller)
 
 
 def test_a_missing_file_means_nothing_is_kept_disabled(tmp_path):
@@ -70,7 +75,7 @@ def test_remove_finds_a_full_line_by_its_id(tmp_path):
     path = tmp_path / "disabled"
     path.write_text("# kept\n3-6:1.0 0408:5482 0000:00:14.0\n1-2:1.0\n")
 
-    assert persist.remove(path, "3-6:1.0") is True
+    assert persist.remove(path, camera()) is True
     assert path.read_text() == "# kept\n1-2:1.0\n"
 
 
@@ -94,7 +99,7 @@ def test_remove_drops_only_that_camera(tmp_path):
     persist.add(path, "3-6:1.0")
     persist.add(path, "1-2:1.0")
 
-    assert persist.remove(path, "3-6:1.0") is True
+    assert persist.remove(path, camera()) is True
     assert persist.load(path) == ["1-2:1.0"]
 
 
@@ -102,15 +107,31 @@ def test_remove_keeps_comments_and_other_lines(tmp_path):
     path = tmp_path / "disabled"
     path.write_text("# kept\n3-6:1.0\n")
 
-    persist.remove(path, "3-6:1.0")
+    persist.remove(path, camera())
 
     assert path.read_text() == "# kept\n"
+
+
+def test_remove_finds_a_line_after_the_bus_number_changed(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("2-6:1.0 0408:5482 0000:00:14.0\n")
+
+    assert persist.remove(path, camera("3-6:1.0")) is True
+    assert persist.load(path) == []
+
+
+def test_remove_keeps_the_line_of_a_different_camera_in_the_same_place(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0 1234:abcd 0000:00:14.0\n")
+
+    assert persist.remove(path, camera()) is False
+    assert path.read_text() == "3-6:1.0 1234:abcd 0000:00:14.0\n"
 
 
 def test_removing_a_camera_that_is_not_listed_does_nothing(tmp_path):
     path = tmp_path / "disabled"
 
-    assert persist.remove(path, "3-6:1.0") is False
+    assert persist.remove(path, camera()) is False
     assert not path.exists()
 
 
@@ -203,7 +224,7 @@ def test_two_removes_at_once_keep_the_other_cameras(tmp_path, monkeypatch):
     path = tmp_path / "disabled"
     path.write_text("3-6:1.0\n1-2:1.0\n2-1:1.0\n")
     real_write = persist.write
-    rival = threading.Thread(target=persist.remove, args=(path, "1-2:1.0"))
+    rival = threading.Thread(target=persist.remove, args=(path, camera("1-2:1.0")))
     started = []
 
     def write_after_a_rival_starts(target, rows):
@@ -215,7 +236,7 @@ def test_two_removes_at_once_keep_the_other_cameras(tmp_path, monkeypatch):
 
     monkeypatch.setattr(persist, "write", write_after_a_rival_starts)
 
-    persist.remove(path, "3-6:1.0")
+    persist.remove(path, camera())
     rival.join()
 
     assert persist.load(path) == ["2-1:1.0"]

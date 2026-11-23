@@ -117,7 +117,7 @@ def apply(
         # which runs restore, and restore would switch the camera straight
         # off again if it were still on the list.
         try:
-            persist.remove(disabled_file, camera.id)
+            persist.remove(disabled_file, camera)
         except OSError as error:
             print(
                 f"campermit: {camera.id}: could not update {disabled_file}: "
@@ -182,7 +182,7 @@ def needs_root(camera: Camera, enabled: bool, disabled_file: Path, keep: bool) -
     # Already as wanted, but enabling still has to clear it from the list.
     if enabled:
         try:
-            return camera.id in persist.load(disabled_file)
+            return persist.listed(disabled_file, camera)
         except OSError:
             return True
 

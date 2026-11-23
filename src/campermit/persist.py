@@ -60,9 +60,13 @@ def load(path: Path) -> list[str]:
     return [entry.id for entry in entries(path)]
 
 
-def is_for(line: str, camera_id: str) -> bool:
+def listed(path: Path, camera: Camera) -> bool:
+    return any(entry.matches(camera) for entry in entries(path))
+
+
+def is_for(line: str, camera: Camera) -> bool:
     entry = parse(line)
-    return entry is not None and entry.id == camera_id
+    return entry is not None and entry.matches(camera)
 
 
 def write(path: Path, rows: list[str]) -> None:
@@ -88,11 +92,11 @@ def add(path: Path, camera_id: str) -> bool:
         return True
 
 
-def remove(path: Path, camera_id: str) -> bool:
-    if camera_id not in load(path):
+def remove(path: Path, camera: Camera) -> bool:
+    if not listed(path, camera):
         return False
     with locked(path.parent):
-        if camera_id not in load(path):
+        if not listed(path, camera):
             return False
-        write(path, [line for line in lines(path) if not is_for(line, camera_id)])
+        write(path, [line for line in lines(path) if not is_for(line, camera)])
         return True

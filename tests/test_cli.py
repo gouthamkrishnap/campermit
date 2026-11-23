@@ -885,6 +885,29 @@ def test_enable_removes_the_camera_even_if_it_is_already_on(sysfs, tmp_path):
     assert persist.load(listing) == []
 
 
+def test_enable_forgets_a_camera_whose_bus_number_changed(sysfs, tmp_path):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+    listing.write_text("2-6:1.0 0408:5482 0000:00:14.0\n")
+
+    exit_code = main(["enable", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert persist.load(listing) == []
+    assert (sysfs / BIND).read_text() == "3-6:1.0\n"
+
+
+def test_enable_keeps_the_line_of_a_different_camera_in_the_same_place(sysfs, tmp_path):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 1234:abcd 0000:00:14.0\n")
+
+    exit_code = main(["enable", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert persist.load(listing) == ["3-6:1.0"]
+
+
 def test_enable_forgets_the_camera_before_binding_it(sysfs, tmp_path, monkeypatch):
     unbind(sysfs, "3-6:1.0")
     listing = tmp_path / "disabled"

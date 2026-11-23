@@ -105,13 +105,37 @@ def test_enabling_asks_when_the_camera_is_still_on_the_list(sysfs, writes, tmp_p
     assert calls == [["enable", "3-6:1.0"]]
 
 
+def test_enabling_asks_when_the_camera_is_listed_under_an_old_bus_number(
+    sysfs, writes, tmp_path
+):
+    listing = tmp_path / "disabled"
+    listing.write_text("2-6:1.0 0408:5482 0000:00:14.0\n")
+    calls, ask = asker()
+
+    main(["enable", "3-6"], root=sysfs, disabled_file=listing, elevate=ask)
+
+    assert calls == [["enable", "3-6:1.0"]]
+
+
+def test_enabling_does_not_ask_for_a_different_camera_in_the_same_place(
+    sysfs, writes, tmp_path
+):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 1234:abcd 0000:00:14.0\n")
+    calls, ask = asker()
+
+    main(["enable", "3-6"], root=sysfs, disabled_file=listing, elevate=ask)
+
+    assert calls == []
+
+
 def test_enabling_asks_when_the_list_cannot_be_read(
     sysfs, writes, tmp_path, monkeypatch
 ):
     def unreadable(path):
         raise PermissionError("no")
 
-    monkeypatch.setattr(persist, "load", unreadable)
+    monkeypatch.setattr(persist, "entries", unreadable)
     calls, ask = asker()
 
     main(
