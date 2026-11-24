@@ -102,6 +102,62 @@ def test_list_does_not_mark_a_camera_that_is_not_saved(sysfs, tmp_path, capsys):
     assert "should be off" not in output
 
 
+def test_list_shows_saved_lines_that_match_no_camera(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("9-9:1.0 1234:abcd 0000:00:0d.0\n")
+
+    main(["list"], root=sysfs, disabled_file=listing)
+
+    output = capsys.readouterr().out
+    assert "no connected camera matches" in output
+    assert "9-9:1.0 1234:abcd 0000:00:0d.0" in output
+    assert str(listing) in output
+
+
+def test_list_shows_saved_lines_when_no_camera_is_connected(tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    main(["list"], root=tmp_path, disabled_file=listing)
+
+    output = capsys.readouterr().out
+    assert "No USB cameras found" in output
+    assert "3-6:1.0 0408:5482 0000:00:14.0" in output
+
+
+def test_list_shows_the_saved_line_of_a_different_camera_in_the_same_place(
+    sysfs, tmp_path, capsys
+):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 1234:abcd 0000:00:14.0\n")
+
+    main(["list"], root=sysfs, disabled_file=listing)
+
+    assert "3-6:1.0 1234:abcd 0000:00:14.0" in capsys.readouterr().out
+
+
+def test_list_has_no_saved_note_when_every_line_matches_a_camera(
+    sysfs, tmp_path, capsys
+):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    main(["list"], root=sysfs, disabled_file=listing)
+
+    assert "no connected camera matches" not in capsys.readouterr().out
+
+
+def test_list_json_stays_json_when_a_saved_line_matches_nothing(
+    sysfs, tmp_path, capsys
+):
+    listing = tmp_path / "disabled"
+    listing.write_text("9-9:1.0 1234:abcd 0000:00:0d.0\n")
+
+    main(["list", "--json"], root=sysfs, disabled_file=listing)
+
+    assert json.loads(capsys.readouterr().out)["schema_version"] == 1
+
+
 def test_list_still_works_when_the_saved_list_cannot_be_read(
     sysfs, tmp_path, capsys, monkeypatch
 ):

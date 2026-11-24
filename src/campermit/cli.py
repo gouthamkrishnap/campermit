@@ -69,6 +69,22 @@ def camera_data(camera: Camera, kept_off: bool) -> dict:
     }
 
 
+def show_missing(
+    saved: list[persist.Entry], cameras: list[Camera], disabled_file: Path
+) -> None:
+    missing = [
+        entry for entry in saved if not any(entry.matches(camera) for camera in cameras)
+    ]
+    if not missing:
+        return
+
+    print()
+    print("Saved to stay off, but no connected camera matches:")
+    for entry in missing:
+        print(f"  {entry.line()}")
+    print(f"To forget one, delete its line from {disabled_file}.")
+
+
 def list_cameras(root: Path, disabled_file: Path, *, as_json: bool = False) -> int:
     cameras = discover(root)
     saved = saved_entries(disabled_file)
@@ -93,6 +109,7 @@ def list_cameras(root: Path, disabled_file: Path, *, as_json: bool = False) -> i
                 "camera), but they are not USB cameras, so campermit "
                 "cannot control them."
             )
+        show_missing(saved, cameras, disabled_file)
         return 0
 
     rows = [("ID", "NAME", "USB ID", "STATE", "NODES")]
@@ -107,6 +124,7 @@ def list_cameras(root: Path, disabled_file: Path, *, as_json: bool = False) -> i
             )
         )
     print(table(rows))
+    show_missing(saved, cameras, disabled_file)
     return 0
 
 
