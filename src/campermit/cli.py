@@ -139,7 +139,7 @@ def apply(
 
     if keep:
         try:
-            persist.add(disabled_file, camera.id)
+            persist.add(disabled_file, camera)
         except OSError as error:
             print(
                 f"campermit: {camera.id}: disabled, but could not save that to "

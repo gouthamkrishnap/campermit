@@ -29,6 +29,9 @@ class Entry(NamedTuple):
     def matches(self, camera: Camera) -> bool:
         return self.is_at(camera) and self.usb_id in (None, camera.usb_id)
 
+    def line(self) -> str:
+        return " ".join(field for field in self if field)
+
 
 @contextmanager
 def locked(folder: Path) -> Iterator[None]:
@@ -83,12 +86,13 @@ def write(path: Path, rows: list[str]) -> None:
         raise
 
 
-def add(path: Path, camera_id: str) -> bool:
+def add(path: Path, camera: Camera) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
+    entry = Entry(camera.id, camera.usb_id, camera.controller)
     with locked(path.parent):
-        if camera_id in load(path):
+        if listed(path, camera):
             return False
-        write(path, [*lines(path), camera_id])
+        write(path, [*lines(path), entry.line()])
         return True
 
 

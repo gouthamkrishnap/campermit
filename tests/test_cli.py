@@ -793,6 +793,14 @@ def test_disable_persist_unbinds_and_adds_to_the_list(sysfs, tmp_path):
     assert persist.load(listing) == ["3-6:1.0"]
 
 
+def test_disable_persist_saves_the_model_and_the_controller(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+
+    main(["disable", "3-6:1.0", "--persist"], root=sysfs, disabled_file=listing)
+
+    assert listing.read_text() == "3-6:1.0 0408:5482 0000:00:14.0\n"
+
+
 def test_disable_without_persist_leaves_the_list_alone(sysfs, tmp_path):
     listing = tmp_path / "disabled"
 
