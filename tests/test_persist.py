@@ -158,6 +158,49 @@ def test_removing_a_camera_that_is_not_listed_does_nothing(tmp_path):
     assert not path.exists()
 
 
+def test_forget_removes_a_line_that_matches_no_camera(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("9-9:1.0 1234:abcd 0000:00:0d.0\n3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    gone = persist.forget(path, "9-9:1.0", [camera()])
+
+    assert gone == [persist.Entry("9-9:1.0", "1234:abcd", "0000:00:0d.0")]
+    assert path.read_text() == "3-6:1.0 0408:5482 0000:00:14.0\n"
+
+
+def test_forget_keeps_a_line_that_matches_a_connected_camera(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    assert persist.forget(path, "3-6:1.0", [camera()]) == []
+    assert path.read_text() == "3-6:1.0 0408:5482 0000:00:14.0\n"
+
+
+def test_forget_removes_only_the_stale_line_that_shares_an_id(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("3-6:1.0 1234:abcd 0000:00:14.0\n3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    persist.forget(path, "3-6:1.0", [camera()])
+
+    assert path.read_text() == "3-6:1.0 0408:5482 0000:00:14.0\n"
+
+
+def test_forget_keeps_comments_and_other_lines(tmp_path):
+    path = tmp_path / "disabled"
+    path.write_text("# kept\n9-9:1.0 1234:abcd 0000:00:0d.0\n")
+
+    persist.forget(path, "9-9:1.0", [])
+
+    assert path.read_text() == "# kept\n"
+
+
+def test_forgetting_with_no_file_does_nothing(tmp_path):
+    path = tmp_path / "campermit" / "disabled"
+
+    assert persist.forget(path, "9-9:1.0", []) == []
+    assert not path.parent.exists()
+
+
 def test_writing_leaves_no_temp_file_behind(tmp_path):
     path = tmp_path / "disabled"
 

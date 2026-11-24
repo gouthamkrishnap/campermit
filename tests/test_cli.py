@@ -111,7 +111,7 @@ def test_list_shows_saved_lines_that_match_no_camera(sysfs, tmp_path, capsys):
     output = capsys.readouterr().out
     assert "no connected camera matches" in output
     assert "9-9:1.0 1234:abcd 0000:00:0d.0" in output
-    assert str(listing) in output
+    assert "campermit forget 9-9:1.0" in output
 
 
 def test_list_shows_saved_lines_when_no_camera_is_connected(tmp_path, capsys):
@@ -890,6 +890,82 @@ def test_restore_ignores_the_same_model_in_another_port(sysfs, tmp_path, capsys)
     assert exit_code == 0
     assert (sysfs / UNBIND).read_text() == ""
     assert capsys.readouterr().err == ""
+
+
+def test_forget_removes_a_saved_line_for_a_camera_that_is_gone(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("9-9:1.0 1234:abcd 0000:00:0d.0\n")
+
+    exit_code = main(["forget", "9-9:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert persist.load(listing) == []
+    assert "Forgot 9-9:1.0 1234:abcd 0000:00:0d.0" in capsys.readouterr().out
+
+
+def test_forget_refuses_a_line_for_a_connected_camera(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    exit_code = main(["forget", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    error = capsys.readouterr().err
+    assert exit_code == 1
+    assert "connected" in error
+    assert "campermit enable 3-6:1.0" in error
+    assert persist.load(listing) == ["3-6:1.0"]
+
+
+def test_forget_points_to_the_camera_by_its_current_id(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("2-6:1.0 0408:5482 0000:00:14.0\n")
+
+    exit_code = main(["forget", "2-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 1
+    assert "campermit enable 3-6:1.0" in capsys.readouterr().err
+
+
+def test_forget_says_when_nothing_is_saved_for_an_id(sysfs, tmp_path, capsys):
+    exit_code = main(
+        ["forget", "9-9:1.0"], root=sysfs, disabled_file=tmp_path / "disabled"
+    )
+
+    assert exit_code == 1
+    assert "nothing saved for 9-9:1.0" in capsys.readouterr().err
+
+
+def test_forget_leaves_the_line_of_a_connected_camera_with_the_same_id(sysfs, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text(
+        "3-6:1.0 1234:abcd 0000:00:14.0\n3-6:1.0 0408:5482 0000:00:14.0\n"
+    )
+
+    exit_code = main(["forget", "3-6:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 0
+    assert listing.read_text() == "3-6:1.0 0408:5482 0000:00:14.0\n"
+
+
+def test_forget_says_when_the_list_cannot_be_changed(
+    sysfs, tmp_path, capsys, monkeypatch
+):
+    listing = tmp_path / "disabled"
+    listing.write_text("9-9:1.0 1234:abcd 0000:00:0d.0\n")
+
+    def refuse(path, camera_id, cameras):
+        raise PermissionError("no")
+
+    monkeypatch.setattr(persist, "forget", refuse)
+
+    exit_code = main(["forget", "9-9:1.0"], root=sysfs, disabled_file=listing)
+
+    assert exit_code == 1
+    assert "needs root" in capsys.readouterr().err
+
+
+def test_forget_without_an_id_is_a_usage_error(tmp_path):
+    assert main(["forget"], root=tmp_path) == 2
 
 
 def test_disable_persist_unbinds_and_adds_to_the_list(sysfs, tmp_path):

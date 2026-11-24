@@ -148,6 +148,43 @@ def test_enabling_asks_when_the_list_cannot_be_read(
     assert calls == [["enable", "3-6:1.0"]]
 
 
+def test_forget_asks_for_root_when_there_is_a_line_to_forget(sysfs, writes, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("9-9:1.0 1234:abcd 0000:00:0d.0\n")
+    calls, ask = asker()
+
+    main(["forget", "9-9:1.0"], root=sysfs, disabled_file=listing, elevate=ask)
+
+    assert calls == [["forget", "9-9:1.0"]]
+
+
+def test_forget_does_not_ask_when_nothing_is_saved(sysfs, writes, tmp_path):
+    calls, ask = asker()
+
+    exit_code = main(
+        ["forget", "9-9:1.0"],
+        root=sysfs,
+        disabled_file=tmp_path / "disabled",
+        elevate=ask,
+    )
+
+    assert exit_code == 1
+    assert calls == []
+
+
+def test_forget_does_not_ask_for_a_connected_camera(sysfs, writes, tmp_path):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+    calls, ask = asker()
+
+    exit_code = main(
+        ["forget", "3-6:1.0"], root=sysfs, disabled_file=listing, elevate=ask
+    )
+
+    assert exit_code == 1
+    assert calls == []
+
+
 def test_persist_asks_even_when_the_camera_is_already_disabled(sysfs, writes, tmp_path):
     unbind(sysfs, "3-6:1.0")
     calls, ask = asker()

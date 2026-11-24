@@ -69,9 +69,7 @@ def camera_data(camera: Camera, kept_off: bool) -> dict:
     }
 
 
-def show_missing(
-    saved: list[persist.Entry], cameras: list[Camera], disabled_file: Path
-) -> None:
+def show_missing(saved: list[persist.Entry], cameras: list[Camera]) -> None:
     missing = [
         entry for entry in saved if not any(entry.matches(camera) for camera in cameras)
     ]
@@ -82,7 +80,7 @@ def show_missing(
     print("Saved to stay off, but no connected camera matches:")
     for entry in missing:
         print(f"  {entry.line()}")
-    print(f"To forget one, delete its line from {disabled_file}.")
+    print(f"To forget one, run: campermit forget {missing[0].id}")
 
 
 def list_cameras(root: Path, disabled_file: Path, *, as_json: bool = False) -> int:
@@ -109,7 +107,7 @@ def list_cameras(root: Path, disabled_file: Path, *, as_json: bool = False) -> i
                 "camera), but they are not USB cameras, so campermit "
                 "cannot control them."
             )
-        show_missing(saved, cameras, disabled_file)
+        show_missing(saved, cameras)
         return 0
 
     rows = [("ID", "NAME", "USB ID", "STATE", "NODES")]
@@ -124,7 +122,7 @@ def list_cameras(root: Path, disabled_file: Path, *, as_json: bool = False) -> i
             )
         )
     print(table(rows))
-    show_missing(saved, cameras, disabled_file)
+    show_missing(saved, cameras)
     return 0
 
 
@@ -333,6 +331,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     restore_command.add_argument("camera", help="the exact camera ID, such as 3-6:1.0")
 
+    forget_command = commands.add_parser(
+        "forget",
+        help="stop keeping a camera that is not connected off "
+        "(for a saved line that list shows)",
+    )
+    forget_command.add_argument(
+        "camera", help="the saved camera ID shown by list, such as 2-6:1.0"
+    )
+
     return parser
 
 
@@ -382,6 +389,58 @@ def restore(root: Path, disabled_file: Path, camera_id: str) -> int:
     return 0
 
 
+def forget(
+    root: Path,
+    disabled_file: Path,
+    camera_id: str,
+    *,
+    elevate: Callable[[list[str]], int] | None = None,
+) -> int:
+    cameras = discover(root)
+
+    try:
+        saved = [e for e in persist.entries(disabled_file) if e.id == camera_id]
+    except OSError as error:
+        print(
+            f"campermit: could not read {disabled_file}: {list_error(error)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    stale = [e for e in saved if not any(e.matches(camera) for camera in cameras)]
+
+    if not stale:
+        connected = next(
+            (camera for e in saved for camera in cameras if e.matches(camera)), None
+        )
+        if connected is None:
+            print(f"campermit: nothing saved for {camera_id}", file=sys.stderr)
+        else:
+            print(
+                f"campermit: {camera_id} is saved for the connected camera "
+                f"{connected.id}. To stop keeping it off, run: "
+                f"campermit enable {connected.id}",
+                file=sys.stderr,
+            )
+        return 1
+
+    if elevate is not None:
+        return elevate(["forget", camera_id])
+
+    try:
+        gone = persist.forget(disabled_file, camera_id, cameras)
+    except OSError as error:
+        print(
+            f"campermit: could not update {disabled_file}: {list_error(error)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    for entry in gone:
+        print(f"Forgot {entry.line()}")
+    return 0
+
+
 def main(
     argv: list[str] | None = None,
     root: Path = Path("/sys"),
@@ -421,6 +480,9 @@ def main(
 
     if args.command == "restore":
         return restore(root, disabled_file, args.camera)
+
+    if args.command == "forget":
+        return forget(root, disabled_file, args.camera, elevate=elevate)
 
     keep = getattr(args, "persist", False)
 

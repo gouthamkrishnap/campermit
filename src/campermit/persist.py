@@ -104,3 +104,24 @@ def remove(path: Path, camera: Camera) -> bool:
             return False
         write(path, [line for line in lines(path) if not is_for(line, camera)])
         return True
+
+
+def forget(path: Path, camera_id: str, cameras: list[Camera]) -> list[Entry]:
+    def stale(entry: Entry) -> bool:
+        return entry.id == camera_id and not any(
+            entry.matches(camera) for camera in cameras
+        )
+
+    if not any(stale(entry) for entry in entries(path)):
+        return []
+    with locked(path.parent):
+        gone = [entry for entry in entries(path) if stale(entry)]
+        if not gone:
+            return []
+        kept = [
+            line
+            for line in lines(path)
+            if (entry := parse(line)) is None or not stale(entry)
+        ]
+        write(path, kept)
+        return gone
