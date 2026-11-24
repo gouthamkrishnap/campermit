@@ -72,6 +72,50 @@ def test_list_shows_a_disabled_camera(sysfs, capsys):
     assert "disabled" in capsys.readouterr().out
 
 
+def test_list_marks_a_disabled_camera_that_is_kept_off(sysfs, tmp_path, capsys):
+    unbind(sysfs, "3-6:1.0")
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    main(["list"], root=sysfs, disabled_file=listing)
+
+    assert "disabled (kept off)" in capsys.readouterr().out
+
+
+def test_list_warns_when_a_camera_that_should_be_off_is_on(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    main(["list"], root=sysfs, disabled_file=listing)
+
+    assert "enabled (should be off)" in capsys.readouterr().out
+
+
+def test_list_does_not_mark_a_camera_that_is_not_saved(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 1234:abcd 0000:00:14.0\n")
+
+    main(["list"], root=sysfs, disabled_file=listing)
+
+    output = capsys.readouterr().out
+    assert "kept off" not in output
+    assert "should be off" not in output
+
+
+def test_list_still_works_when_the_saved_list_cannot_be_read(
+    sysfs, tmp_path, capsys, monkeypatch
+):
+    def unreadable(path):
+        raise PermissionError("no")
+
+    monkeypatch.setattr(persist, "entries", unreadable)
+
+    exit_code = main(["list"], root=sysfs, disabled_file=tmp_path / "disabled")
+
+    assert exit_code == 0
+    assert "3-6:1.0" in capsys.readouterr().out
+
+
 def test_list_shows_a_camera_used_by_another_driver(sysfs, capsys):
     link = sysfs / "bus/usb/devices/3-6:1.0/driver"
     link.unlink()
@@ -569,9 +613,20 @@ def test_list_json_describes_each_camera(sysfs, capsys):
                 "state": "enabled",
                 "driver": "uvcvideo",
                 "nodes": ["/dev/video0", "/dev/video1"],
+                "kept_off": False,
             }
         ],
     }
+
+
+def test_list_json_says_whether_a_camera_is_kept_off(sysfs, tmp_path, capsys):
+    listing = tmp_path / "disabled"
+    listing.write_text("3-6:1.0 0408:5482 0000:00:14.0\n")
+
+    main(["list", "--json"], root=sysfs, disabled_file=listing)
+
+    [camera] = json.loads(capsys.readouterr().out)["cameras"]
+    assert camera["kept_off"] is True
 
 
 def test_list_json_of_a_disabled_camera(sysfs, capsys):

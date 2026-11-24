@@ -37,7 +37,27 @@ def table(rows: list[tuple[str, ...]]) -> str:
     )
 
 
-def camera_data(camera: Camera) -> dict:
+def saved_entries(disabled_file: Path) -> list[persist.Entry]:
+    try:
+        return persist.entries(disabled_file)
+    except OSError:
+        return []
+
+
+def is_kept_off(camera: Camera, saved: list[persist.Entry]) -> bool:
+    return any(entry.matches(camera) for entry in saved)
+
+
+def state_in_list(camera: Camera, kept_off: bool) -> str:
+    text = state(camera)
+    if not kept_off:
+        return text
+    if camera.driver is None:
+        return f"{text} (kept off)"
+    return f"{text} (should be off)"
+
+
+def camera_data(camera: Camera, kept_off: bool) -> dict:
     return {
         "id": camera.id,
         "name": camera.name,
@@ -45,18 +65,22 @@ def camera_data(camera: Camera) -> dict:
         "state": state_name(camera),
         "driver": camera.driver,
         "nodes": camera.nodes,
+        "kept_off": kept_off,
     }
 
 
-def list_cameras(root: Path, *, as_json: bool = False) -> int:
+def list_cameras(root: Path, disabled_file: Path, *, as_json: bool = False) -> int:
     cameras = discover(root)
+    saved = saved_entries(disabled_file)
 
     if as_json:
         import json
 
         data = {
             "schema_version": 1,
-            "cameras": [camera_data(camera) for camera in cameras],
+            "cameras": [
+                camera_data(camera, is_kept_off(camera, saved)) for camera in cameras
+            ],
         }
         print(json.dumps(data, indent=2))
         return 0
@@ -78,7 +102,7 @@ def list_cameras(root: Path, *, as_json: bool = False) -> int:
                 camera.id,
                 camera.name,
                 camera.usb_id,
-                state(camera),
+                state_in_list(camera, is_kept_off(camera, saved)),
                 " ".join(camera.nodes),
             )
         )
@@ -372,7 +396,7 @@ def main(
         return 2
 
     if args.command == "list":
-        return list_cameras(root, as_json=args.json)
+        return list_cameras(root, disabled_file, as_json=args.json)
 
     if args.command == "status":
         return show_status(root, args.camera)
