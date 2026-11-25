@@ -9,6 +9,10 @@ The camera is `3-6` in `/sys/bus/usb/devices/` (bus 3, port 6). An interface add
 `:1.N`, where N is the interface number. The `Device` number from `lsusb` changes
 and is not part of the name.
 
+The real path is `/sys/devices/pci0000:00/0000:00:14.0/usb3/3-6`. The folder
+before `usb3` is the USB controller, `0000:00:14.0` here. udev calls the same
+place `pci-0000:00:14.0-usb-0:6:1.0` (`ID_PATH`), which has no bus number.
+
 | Interface | Class | Subclass | Role | Driver |
 | --- | --- | --- | --- | --- |
 | `3-6:1.0` | `0e` | `01` | video control | `uvcvideo` |
@@ -29,6 +33,9 @@ control interface is the one with class `0e` and subclass `01`.
 - A device with no driver has no `driver` link at all.
 - `bind` and `unbind` live in `/sys/bus/usb/drivers/uvcvideo/` and are writable
   by root only.
+- The bus number (`3` in `3-6`) was the same in the four boots checked, but the
+  kernel does not promise it. The controller and the port are what stay in the
+  same place, so a saved camera is matched on those and the USB ID.
 
 ## Unbind and bind
 
