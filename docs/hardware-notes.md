@@ -80,9 +80,7 @@ camera is already in the state we wanted.
 
 ## Not checked yet
 
-- An app holding the camera open during unbind.
 - Unplugging an external camera during a write.
-- Two commands running at once.
 - External USB cameras, or laptops with more than one camera.
 - Which events fire when `uvcvideo` is loaded before udev starts.
 - The password prompt with no polkit agent running. pkexec should fall back to a
