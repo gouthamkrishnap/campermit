@@ -280,7 +280,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     list_command = commands.add_parser(
-        "list", help="show the cameras and whether they are on"
+        "list", help="show the cameras, whether they are on, and which are kept off"
     )
     list_command.add_argument(
         "--json",
@@ -333,8 +333,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     forget_command = commands.add_parser(
         "forget",
-        help="stop keeping a camera that is not connected off "
-        "(for a saved line that list shows)",
+        help="forget a saved camera that is not connected "
+        "(a line that list shows as saved)",
     )
     forget_command.add_argument(
         "camera", help="the saved camera ID shown by list, such as 2-6:1.0"
